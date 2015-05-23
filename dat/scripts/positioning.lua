@@ -2,7 +2,14 @@
 
    Accurate ship positioning using control theory
 
-   Usage : asserv(myPilot, targetPilot, offset, Kp, Kd) : myPilot will try to join the position given by the sum of targetPilot's position and offset.
+   Usage : 
+
+   asserv(myPilot, targetPilot, offset, Kp, Kd) :
+   myPilot will try to join the position given by the sum of targetPilot's position and offset.
+
+   stopAsserv(myPilot) :
+   myPilot is availible for manual control or ai
+
 
    myPilot and targetPilot are compulsory and offset, Kp, Kd are optionnal
 
@@ -12,7 +19,7 @@
    In general, a heavy ship has more risk to be unstable
 
    By default, offset = vec2(0,0), Kp = 10, Kd = 200
-   offset = vec2(0,0), Kp = 1, Kd = 0 gives exactly the same results as pliot.follow()
+   offset = vec2(0,0), Kp = 1, Kd = 0 gives exactly the same results as pilot.follow()
 
 --]]
 
@@ -42,10 +49,16 @@ function asserv(myPilot, target, offset, Kp, Kd)
    if not asservmem then
       asservmem = {}
    end
+
+   --Create the table for the hooks
+   if not thook then
+      thook = {}
+   end
+
    asservmem[myPilot:id()] = vec2.new(0, 0)
 
    controlLoop({myPilot, target, offset, Kp, Kd})
-   
+
 end
 
 function controlLoop(data)
@@ -55,18 +68,27 @@ function controlLoop(data)
    local Kp = data[4]
    local Kd = data[5]
 
+   -- Handle the desappearing of the follower
+   if myPilot:exists() == false then
+      return
+   end
+
+   -- Handle the desappearing of the target
+   if target:exists() == false then
+      myPilot:control(false)
+      return
+   end
+
    local lastdist = asservmem[myPilot:id()]
 
    -- do vectorial operations
    local prop = target:pos() + offset - myPilot:pos()
 
-   local deri = prop - lastdist      -- the derivative of the distance
+   local deri = prop - lastdist      -- the derivative of the distance ( = vectorial relative speed)
 
    local cons = prop*Kp + deri*Kd
 
    local goal = cons + myPilot:pos()
-
-   --p:stats().thrust
 
    myPilot:control()   --clear orders
    if cons:mod() >= 300 then
@@ -76,10 +98,15 @@ function controlLoop(data)
    end
    
    myPilot:face(target:pos())
-   --print(goal:mod())
 
    --update the memo
    asservmem[myPilot:id()] = prop
 
-   thook = hook.timer(100, "controlLoop", data) -- re-calls itself
+   thook[myPilot:id()] = hook.timer(100, "controlLoop", data) -- re-calls itself
+end
+
+--Give the pilot back to it's AI
+function stopAsserv(myPilot)
+   hook.rm(thook[myPilot:id()])
+   myPilot:control(false)
 end
