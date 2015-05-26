@@ -18,7 +18,7 @@
 
    In general, a heavy ship has more risk to be unstable
 
-   By default, offset = vec2(0,0), Kp = 10, Kd = 200
+   By default, offset = vec2(0,0), Kp = 10, Kd = 20
    offset = vec2(0,0), Kp = 1, Kd = 0 gives exactly the same results as pilot.follow()
 
 --]]
@@ -42,20 +42,13 @@ function asserv(myPilot, target, offset, Kp, Kd)
    end
 
    if not Kd then
-      Kd = 200
-   end
-
-   --Create the table where the data is stored
-   if not asservmem then
-      asservmem = {}
+      Kd = 20
    end
 
    --Create the table for the hooks
    if not thook then
       thook = {}
    end
-
-   asservmem[myPilot:id()] = vec2.new(0, 0)
 
    controlLoop({myPilot, target, offset, Kp, Kd})
 
@@ -69,22 +62,20 @@ function controlLoop(data)
    local Kd = data[5]
 
    -- Handle the desappearing of the follower
-   if myPilot:exists() == false then
+   if not myPilot:exists() then
       return
    end
 
    -- Handle the desappearing of the target
-   if target:exists() == false then
+   if not target:exists() then
       myPilot:control(false)
       return
    end
 
-   local lastdist = asservmem[myPilot:id()]
-
    -- do vectorial operations
    local prop = target:pos() + offset - myPilot:pos()
 
-   local deri = prop - lastdist      -- the derivative of the distance ( = vectorial relative speed)
+   local deri = target:vel() - myPilot:vel()   -- the derivative of the distance ( = vectorial relative speed)
 
    local cons = prop*Kp + deri*Kd
 
@@ -96,11 +87,6 @@ function controlLoop(data)
       else
       myPilot:face(goal)
    end
-   
-   myPilot:face(target:pos())
-
-   --update the memo
-   asservmem[myPilot:id()] = prop
 
    thook[myPilot:id()] = hook.timer(100, "controlLoop", data) -- re-calls itself
 end
