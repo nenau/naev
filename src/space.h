@@ -122,6 +122,7 @@ typedef struct Planet_ {
  * Forward declaration.
  */
 typedef struct StarSystem_ StarSystem;
+typedef struct SpaceNode_ SpaceNode;
 
 
 /**
@@ -182,6 +183,38 @@ typedef struct JumpPoint_ {
 extern glTexture *jumppoint_gfx; /**< Jump point graphics. */
 
 
+
+/**
+ * @brief Represents a safe lane.
+ */
+typedef struct SafeLane_ {
+   SpaceNode *node1, *node2; /**< Nodes linked by this lane. */
+   int active; /**< Wether the lane will be a patrol lane. */
+   int shouldExist; /**< 0 if this lane is un-activable, 1 in normal case and 2 if lane must exist */
+   int *factions; /**< Pointer to an array of factions patrolling the lane. */
+   int nfactions; /**< Number of factions patrolling the lane. */
+   int id; /**< ID */
+   double *usefulness; /**< How useful this lane is for the different factions*/
+   double length; /**< The price of the lane */
+   double flow; /**< How much traffic will use the lane. */
+   double pressure; /**< How much traffic wants to use the lane. */
+} SafeLane;
+
+
+/**
+ * @brief Represents an interesting point in space.
+ */
+struct SpaceNode_ {
+   Vector2d pos;  /**< Position of the node in the system */
+   SafeLane *lanes; /**< Linked lanes */
+   int id; /**< ID */
+   int nlanes; /**< nb of linked lanes */
+   double weight; /**< Importance of this node */
+   double length; /**< Length from first node in pathfinder */
+   SafeLane **way; /**< Way to the first node in pathfinder */
+};
+
+
 /**
  * @brief Represents a star system.
  *
@@ -204,6 +237,7 @@ struct StarSystem_ {
    Planet **planets; /**< planets */
    int *planetsid; /**< IDs of the planets. */
    int nplanets; /**< total number of planets */
+   int lplanets; /**< number of inhabited planets */
    int faction; /**< overall faction */
 
    /* Jumps. */
@@ -214,6 +248,9 @@ struct StarSystem_ {
    Fleet** fleets; /**< fleets that can appear in the current system */
    int nfleets; /**< total number of fleets */
    double avg_pilot; /**< Target amount of pilots in the system. */
+
+   /* Lanes. */
+   int lanesPossible; /**< Boolean : wether factions in this system build lanes */
 
    /* Calculated. */
    double *prices; /**< Handles the prices in the system. */
@@ -279,6 +316,17 @@ int planet_setRadiusFromGFX(Planet* planet);
  */
 JumpPoint* jump_get( const char* jumpname, const StarSystem* sys );
 JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys );
+
+
+/*
+ * Safe lanes stuff
+ */
+void system_computeSafeLanes(StarSystem *sys);
+void lane_populate ( SafeLane *lane );
+void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k );
+double lane_activate ( double remain_presence );
+void lane_flowPathfinder( SafeLane *lane );
+
 
 /*
  * system adding/removing stuff.

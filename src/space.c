@@ -95,6 +95,14 @@ static int planet_nstack = 0; /**< Planet stack size. */
 static int planet_mstack = 0; /**< Memory size of planet stack. */
 
 /*
+ * Safe Lanes stack (gets overritten every time the system changes)
+ */
+SafeLane *lanes = NULL; /**< Safe lanes stack. */
+static int nlanes = 0;  /**< Safe lane stack size. */
+SpaceNode *snodes = NULL; /**< Space nodes stack. */
+static int nsnodes = 0;  /**< Space nodes stack size. */
+
+/*
  * Misc.
  */
 static int systems_loading = 1; /**< Systems are loading. */
@@ -1303,6 +1311,9 @@ void space_init( const char* sysname )
       }
    }
 
+   /* Handle the Safe lanes */
+   system_computeSafeLanes(cur_system);
+
    /* Set up planets. */
    for (i=0; i<cur_system->nplanets; i++) {
       pnt = cur_system->planets[i];
@@ -1344,6 +1355,13 @@ void space_init( const char* sysname )
    /* we now know this system */
    sys_setFlag(cur_system,SYSTEM_KNOWN);
 
+   /* Populate the lanes */
+   for (i=0; i<nlanes; i++){
+      if ( lanes[i].active == 1 )
+         lane_populate( &lanes[i] );
+      //DEBUG("Une de faite");
+   }
+
    /* Simulate system. */
    space_simulating = 1;
    if (player.p != NULL)
@@ -1370,6 +1388,7 @@ void space_init( const char* sysname )
 
    /* Start background. */
    background_load( cur_system->background );
+
 }
 
 
@@ -1955,6 +1974,11 @@ int system_addPlanet( StarSystem *sys, const char *planetname )
 
    economy_addQueuedUpdate();
 
+   /* See if planet is inhabited */
+   if (planet->real == ASSET_REAL  &&
+         planet_hasService(planet,PLANET_SERVICE_INHABITED))
+      sys->lplanets++;
+
    /* Add the presence. */
    if (!systems_loading) {
       system_addPresence( sys, planet->faction, planet->presenceAmount, planet->presenceRange );
@@ -2002,6 +2026,11 @@ int system_rmPlanet( StarSystem *sys, const char *planetname )
    sys->nplanets--;
    memmove( &sys->planets[i], &sys->planets[i+1], sizeof(Planet*) * (sys->nplanets-i) );
    memmove( &sys->planetsid[i], &sys->planetsid[i+1], sizeof(int) * (sys->nplanets-i) );
+
+   /* See if planet was inhabited */
+   if (planet->real == ASSET_REAL  &&
+         planet_hasService(planet,PLANET_SERVICE_INHABITED))
+      sys->lplanets--;
 
    /* Remove the presence. */
    system_addPresence( sys, planet->faction, -(planet->presenceAmount), planet->presenceRange );
@@ -2281,6 +2310,338 @@ void systems_reconstructPlanets (void)
       sys = &systems_stack[i];
       for (j=0; j<sys->nplanets; j++)
          sys->planets[j] = &planet_stack[ sys->planetsid[j] ];
+   }
+}
+
+
+/**
+ * @brief Computes and creates the lanes on a system.
+ */
+void system_computeSafeLanes(StarSystem *sys)
+{
+   int i, j, k, factn = 1, factnm2 = 1;
+   double remain_presence;
+
+   /* Provisional : only the owner of the system builds lanes.*/
+   /* No owner means no lanes. */
+   if (sys->faction == -1)
+      return;
+
+   /* Allocate memory for nodes */
+   nsnodes = sys->lplanets+sys->njumps;
+   snodes = malloc (sizeof(SpaceNode) * nsnodes);
+
+   /* Creates all the nodes */
+   k = 0;
+   for (i=0; i<sys->nplanets; i++){
+      /* No lane from a virtual or a not inhabited planet */
+      if (sys->planets[i]->real == ASSET_VIRTUAL  ||
+            !planet_hasService(sys->planets[i],PLANET_SERVICE_INHABITED))
+         continue;
+
+      snodes[k].pos = sys->planets[i]->pos;
+      snodes[k].weight = sys->planets[i]->presenceAmount;
+      snodes[k].id = k;
+      snodes[k].nlanes = 0.;
+      /* Initialize stack */
+      snodes[k].lanes = malloc( sizeof(SafeLane) * nsnodes-1 );
+      k++;
+   }
+
+   /* Don't forget the jumps */
+   for (i=0; i<sys->njumps; i++){
+      snodes[k].pos = sys->jumps[i].pos;
+      snodes[k].weight = sys->jumps[i].target->ownerpresence; 
+      snodes[k].id = k;
+      snodes[k].nlanes = 0.;
+      /* Initialize stack */
+      snodes[k].lanes = malloc( sizeof(SafeLane) * nsnodes-1 );
+      k++;
+   }
+
+   k = 0;
+   /* Allocate memory : first compute some factorial*/
+   if (nsnodes>1){
+      for (i=0; i<nsnodes; i++){
+         if (i<nsnodes-2)
+            factnm2 = factn*(i+1);
+         factn = factn*(i+1);
+      }
+      /* Then use the formula */
+      nlanes = factn/(2*factnm2);
+   }
+   else {  /* There is only one asset/jump on this system */
+      nlanes = 0;
+   }
+
+   lanes = malloc (sizeof(SafeLane) * nlanes);
+
+   /* Now, loop over the nodes in order to create the lanes */
+   for (i=0; i<nsnodes; i++){
+      for (j=i; j<nsnodes; j++){
+
+         /* No lane from a node to itself */
+         if (i==j) continue;
+
+         lane_new( &snodes[i], &snodes[j], sys, k );
+         k++;
+      }
+   }
+
+   /* Choose what lanes to activate */
+   remain_presence = sys->ownerpresence;
+
+   while (remain_presence > 0.){
+      remain_presence = lane_activate(remain_presence);
+   }
+
+}
+
+
+/**
+ * @brief Creates a lane between 2 nodes.
+ */
+void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k )
+{
+   lanes[k].node1 = n1;
+   lanes[k].node2 = n2;
+   lanes[k].length = vect_dist(&n1->pos, &n2->pos);
+   lanes[k].pressure = n1->weight * n2->weight;
+
+   lanes[k].active = 0;
+   lanes[k].shouldExist = 1;
+   lanes[k].nfactions = 1;
+   lanes[k].factions = malloc( sizeof(int) * lanes[k].nfactions );
+   lanes[k].usefulness = malloc( sizeof(int) * lanes[k].nfactions );
+   lanes[k].factions[0] = sys->faction;
+   lanes[k].usefulness[0] = 0.;
+   lanes[k].flow = 0.;
+
+   lanes[k].id = k;
+
+   /* Update nodes conectivity stuff */
+   n1->lanes[n1->nlanes] = lanes[k];
+   n1->nlanes++;
+   n2->lanes[n2->nlanes] = lanes[k];
+   n2->nlanes++;
+}
+
+
+/**
+ * @brief populates a lane with turrets.
+ */
+void lane_populate ( SafeLane *lane )
+{
+   double length, distance = 2000.; /* Define the distance between 2 turrets */
+   int nturret, i;
+   Vector2d vv, vp, v1, v2;
+   PilotFlags flags;
+
+   v1 = lane->node1->pos;
+   v2 = lane->node2->pos;
+
+   /* Computes the lenght of the lane and the number of turrets */
+   length = vect_dist(&v1, &v2);
+   nturret = floor(length/distance) - 1;
+   /* Actualize distance in order to have regular lanes. */
+   distance = length/(nturret+1) ;
+
+   /* Create all the turrets */
+   pilot_clearFlagsRaw( flags );
+   vect_cset( &vv, 0., 0.);
+   for (i=0; i<nturret; i++){
+      vect_cset( &vp, v1.x + (v2.x-v1.x) * (i+1)*distance/length, v1.y + (v2.y-v1.y) * (i+1)*distance/length);
+      pilot_create( ship_get( "Pacifier" ), "Placeholder Turret", lane->factions[0], "dummy", 0., &vp, &vv, flags, -1 );
+   }
+}
+
+
+/**
+ * @brief Chooses witch lane is the most useful.
+ *
+ * 1st step : compute the average time ships spend on lanes (arduousness) with the current set of lanes
+ * 2nd step : for each not-active lane, compute the average time in case this lane is activated
+ * 3rd step : sort the lanes in term of effecienty
+ * 4th step : build the most efficient of the affordable lanes
+ */
+double lane_activate ( double remain_presence )
+{
+   int k, n;
+   double ardu, curardu, bestuse, priceCoeff, noLaneCoeff;
+   SafeLane *bestLane;
+
+   /* ardu messes the average arduousness for ships */
+   ardu = 0.;
+
+   /* priceCoeff : the price of 1m safelane */
+   priceCoeff = 0.0075;
+
+   /* choosen lane */
+   bestuse = 0.;
+   bestLane = NULL;
+
+   /* noLaneCoeff : the arduousness increase when a lane is not active */
+   noLaneCoeff = 3.;
+
+   /* Loop over all the pairs of assets/jumps */
+   for (k=0; k<nlanes; k++){
+      lane_flowPathfinder(&lanes[k]);
+   }
+
+   for (k=0; k<nlanes; k++){
+      if (lanes[k].active)
+         ardu += lanes[k].flow * lanes[k].length;
+      else
+         ardu += lanes[k].flow * lanes[k].length * noLaneCoeff;
+
+      /* Re-init the flow for later use */
+      lanes[k].flow = 0.;
+   }
+
+   /* Loop over all the not-active lanes in order to estimate how useful they would be */
+   for (n=0; n<nlanes; n++){
+      if (lanes[n].active) continue;
+
+      lanes[n].active = 1;
+
+      /* Compute the current arduousness */
+      curardu = 0.;
+      for (k=0; k<nlanes; k++)
+         lane_flowPathfinder(&lanes[k]);
+
+      /* Now that every flow has been upgraded, re-loop in order to compute ardu */
+      for (k=0; k<nlanes; k++){
+         if (lanes[k].active)
+            curardu += lanes[k].flow * lanes[k].length;
+         else
+            curardu += lanes[k].flow * lanes[k].length * noLaneCoeff;
+
+         /* Re-init the flow for later use */
+         lanes[k].flow = 0.;
+      }
+      lanes[n].usefulness[0] = (ardu - curardu)/lanes[n].length ;
+
+      if (lanes[n].usefulness[0] > bestuse && 
+            lanes[n].length * priceCoeff < remain_presence ){
+         bestuse = lanes[n].usefulness[0];
+         bestLane = &lanes[n];
+      }
+      /* Re-set lane to not active */
+      lanes[n].active = 0;
+   }
+
+   /* Finally : activate the best lane */
+   if (bestLane != NULL){
+      bestLane->active = 1;
+      return remain_presence - bestLane->length * priceCoeff;
+   }
+
+   /* No lane was activated : no ned to iterate further : return a negative number */
+   return -1.;
+}
+
+
+/**
+ * @brief Computes the flow on each lane
+ *
+ * A Pathfinder (Dijkstra) computes the shortest way and adds the flow to the lanes on this way
+ */
+void lane_flowPathfinder( SafeLane *lane )
+{
+   double noLaneCoeff = 3.;
+   SpaceNode **front;
+   SafeLane nulLane;
+   SpaceNode nulNode;
+   double bestLen, curLen;
+   SpaceNode *n1, *n2;
+   int i, j, k;
+
+   /* Memory management */
+   front = malloc( sizeof(SpaceNode) * nsnodes );
+
+   /* Init */
+   nulNode.id = nsnodes+1;
+   nulLane.id = nlanes+1;
+
+   for (i=0; i<nsnodes; i++){
+     front[i] = &snodes[i];
+     snodes[i].length = INFINITY;
+     snodes[i].way = malloc( sizeof(SafeLane) * nlanes );
+      for (j=0; j<nlanes; j++){
+        snodes[i].way[j] = &nulLane;
+      }
+   }
+
+   lane->node1->length = 0.;
+   bestLen = INFINITY;
+
+   /* Look for shortest way : */
+   /* While there is still at least one node in the front */
+   while (front[0]->id != nulNode.id){
+
+      /* loop over the nodes of the front in order to find the closest */
+      curLen = INFINITY;
+      for (i=0; i<nsnodes; i++){
+         if (front[i]->id == nulNode.id) continue;
+         if (front[i]->length < curLen){
+            curLen = front[i]->length;
+            n1 = front[i];
+            j = i;
+         }
+      }
+
+      /* n1 doesn't belongs to the front anymore : re-pack the stack */
+      for (i=j; i<nsnodes; i++){
+         if (i<nsnodes-1) front[i] = front[i+1];
+         else front[i] = &nulNode;
+      }
+
+      /* Loop over successor nodes */
+      for (j=0; j<n1->nlanes; j++){
+         /* See if we are still lower than best len */
+         if (n1->lanes[j].active)
+            curLen = n1->lanes[j].length;
+         else
+            curLen = n1->lanes[j].length * noLaneCoeff;
+
+         /* find the node */
+         if (n1->lanes[j].node1->id == n1->id)
+            n2 = n1->lanes[j].node2;
+         else
+            n2 = n1->lanes[j].node1;
+
+         /* Upgrade the length */
+         if (n2->length > n1->length + curLen)
+            snodes[n2->id].length = n1->length + curLen;
+
+         /* Upgrade the way */
+         for (k=0; k<nlanes; k++){
+            if (n1->way[k]->id != nulLane.id)
+               n2->way[k] = n1->way[k];
+            else{
+               n2->way[k] = &n1->lanes[j];
+               break;
+            }
+         }
+
+         /* If the node is the goal, we have a shorter way */
+         if (n2->id == lane->node2->id){
+            bestLen = n2->length;
+         }
+      }
+   }
+
+   /* Loop over the lanes in target->way and add the flow */
+   for (i=0; i<nlanes; i++){
+      if (lane->node2->way[i]->id != nulLane.id){
+         lanes[lane->node2->way[i]->id].flow += lane->pressure;
+      }
+   }
+
+   /* Memory management */
+   free(front);
+   for (i=0; i<nsnodes; i++){
+     free(snodes[i].way);
    }
 }
 
@@ -2726,6 +3087,7 @@ int space_load (void)
       for (j=0; j<sys->njumps; j++)
          sys->jumps[j].targetid = sys->jumps[j].target->id;
       sys->ownerpresence = system_getPresence( sys, sys->faction );
+
    }
 
    return 0;
