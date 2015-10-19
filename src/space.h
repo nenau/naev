@@ -211,7 +211,7 @@ struct SpaceNode_ {
    int nlanes; /**< nb of linked lanes */
    double weight; /**< Importance of this node */
    double length; /**< Length from first node in pathfinder */
-   SafeLane **way; /**< Way to the first node in pathfinder */
+   SafeLane *way; /**< Way to the first node in pathfinder */
 };
 
 
@@ -243,6 +243,7 @@ struct StarSystem_ {
    /* Jumps. */
    JumpPoint *jumps; /**< Jump points in the system */
    int njumps; /**< number of adjacent jumps */
+   int ljumps; /**< number of not hidden jumps */
 
    /* Fleets. */
    Fleet** fleets; /**< fleets that can appear in the current system */

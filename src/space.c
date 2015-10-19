@@ -1359,7 +1359,6 @@ void space_init( const char* sysname )
    for (i=0; i<nlanes; i++){
       if ( lanes[i].active == 1 )
          lane_populate( &lanes[i] );
-      //DEBUG("Une de faite");
    }
 
    /* Simulate system. */
@@ -2129,6 +2128,10 @@ int system_rmJump( StarSystem *sys, const char *jumpname )
       return -1;
    }
 
+   /* Remove it to the number of not hidden jumps */
+   if (!jp_isFlag(jump,JP_HIDDEN))
+      sys->ljumps--;
+
    /* Remove jump from system. */
    sys->njumps--;
 
@@ -2328,7 +2331,7 @@ void system_computeSafeLanes(StarSystem *sys)
       return;
 
    /* Allocate memory for nodes */
-   nsnodes = sys->lplanets+sys->njumps;
+   nsnodes = sys->lplanets+sys->ljumps;
    snodes = malloc (sizeof(SpaceNode) * nsnodes);
 
    /* Creates all the nodes */
@@ -2350,6 +2353,9 @@ void system_computeSafeLanes(StarSystem *sys)
 
    /* Don't forget the jumps */
    for (i=0; i<sys->njumps; i++){
+      /* No lane from a hidden jump */
+      if ( jp_isFlag(&sys->jumps[i], JP_HIDDEN) )
+         continue;
       snodes[k].pos = sys->jumps[i].pos;
       snodes[k].weight = sys->jumps[i].target->ownerpresence; 
       snodes[k].id = k;
@@ -2378,8 +2384,8 @@ void system_computeSafeLanes(StarSystem *sys)
 
    /* Now, loop over the nodes in order to create the lanes */
    for (i=0; i<nsnodes; i++){
+      
       for (j=i; j<nsnodes; j++){
-
          /* No lane from a node to itself */
          if (i==j) continue;
 
@@ -2451,7 +2457,7 @@ void lane_populate ( SafeLane *lane )
    vect_cset( &vv, 0., 0.);
    for (i=0; i<nturret; i++){
       vect_cset( &vp, v1.x + (v2.x-v1.x) * (i+1)*distance/length, v1.y + (v2.y-v1.y) * (i+1)*distance/length);
-      pilot_create( ship_get( "Pacifier" ), "Placeholder Turret", lane->factions[0], "dummy", 0., &vp, &vv, flags, -1 );
+      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->factions[0], "dummy", 0., &vp, &vv, flags, -1 );
    }
 }
 
@@ -2522,7 +2528,7 @@ double lane_activate ( double remain_presence )
       lanes[n].usefulness[0] = (ardu - curardu)/lanes[n].length ;
 
       if (lanes[n].usefulness[0] > bestuse && 
-            lanes[n].length * priceCoeff < remain_presence ){
+            lanes[n].length * priceCoeff < remain_presence){
          bestuse = lanes[n].usefulness[0];
          bestLane = &lanes[n];
       }
@@ -2568,7 +2574,7 @@ void lane_flowPathfinder( SafeLane *lane )
      snodes[i].length = INFINITY;
      snodes[i].way = malloc( sizeof(SafeLane) * nlanes );
       for (j=0; j<nlanes; j++){
-        snodes[i].way[j] = &nulLane;
+        snodes[i].way[j] = nulLane;
       }
    }
 
@@ -2582,7 +2588,7 @@ void lane_flowPathfinder( SafeLane *lane )
       /* loop over the nodes of the front in order to find the closest */
       curLen = INFINITY;
       for (i=0; i<nsnodes; i++){
-         if (front[i]->id == nulNode.id) continue;
+         if (front[i]->id == nulNode.id) break;
          if (front[i]->length < curLen){
             curLen = front[i]->length;
             n1 = front[i];
@@ -2591,15 +2597,14 @@ void lane_flowPathfinder( SafeLane *lane )
       }
 
       /* n1 doesn't belongs to the front anymore : re-pack the stack */
-      for (i=j; i<nsnodes; i++){
-         if (i<nsnodes-1) front[i] = front[i+1];
-         else front[i] = &nulNode;
-      }
+      for (i=j; i<nsnodes-1; i++)
+         front[i] = front[i+1];
+      front[nsnodes-1] = &nulNode;
 
       /* Loop over successor nodes */
       for (j=0; j<n1->nlanes; j++){
          /* See if we are still lower than best len */
-         if (n1->lanes[j].active)
+         if (lanes[n1->lanes[j].id].active)
             curLen = n1->lanes[j].length;
          else
             curLen = n1->lanes[j].length * noLaneCoeff;
@@ -2611,16 +2616,17 @@ void lane_flowPathfinder( SafeLane *lane )
             n2 = n1->lanes[j].node1;
 
          /* Upgrade the length */
-         if (n2->length > n1->length + curLen)
-            snodes[n2->id].length = n1->length + curLen;
+         if (n2->length > n1->length + curLen){
+            n2->length = n1->length + curLen;
 
-         /* Upgrade the way */
-         for (k=0; k<nlanes; k++){
-            if (n1->way[k]->id != nulLane.id)
-               n2->way[k] = n1->way[k];
-            else{
-               n2->way[k] = &n1->lanes[j];
-               break;
+            /* Upgrade the way */
+            for (k=0; k<nlanes; k++){
+               if (n1->way[k].id != nulLane.id)
+                  n2->way[k] = n1->way[k];
+               else{
+                  n2->way[k] = n1->lanes[j];
+                  break;
+               }
             }
          }
 
@@ -2633,8 +2639,8 @@ void lane_flowPathfinder( SafeLane *lane )
 
    /* Loop over the lanes in target->way and add the flow */
    for (i=0; i<nlanes; i++){
-      if (lane->node2->way[i]->id != nulLane.id){
-         lanes[lane->node2->way[i]->id].flow += lane->pressure;
+      if (lane->node2->way[i].id != nulLane.id){
+         lanes[lane->node2->way[i].id].flow += lane->pressure;
       }
    }
 
@@ -2883,6 +2889,10 @@ static int system_parseJumpPointDiff( const xmlNodePtr node, StarSystem *sys )
    /* Added jump. */
    sys->njumps++;
 
+   /* Add it to the number of not hidden jumps */
+   if (!jp_isFlag(j,JP_HIDDEN))
+      sys->ljumps++;
+
    return 0;
 }
 
@@ -2991,6 +3001,10 @@ static int system_parseJumpPoint( const xmlNodePtr node, StarSystem *sys )
 
    /* Added jump. */
    sys->njumps++;
+
+   /* Add it to the number of not hidden jumps */
+   if (!jp_isFlag(j,JP_HIDDEN))
+      sys->ljumps++;
 
    return 0;
 }
