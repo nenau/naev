@@ -197,7 +197,7 @@ typedef struct SafeLane_ {
    double *usefulness; /**< How useful this lane is for the different factions*/
    double length; /**< The price of the lane */
    double flow; /**< How much traffic will use the lane. */
-   double pressure; /**< How much traffic wants to use the lane. */
+   double *pressure; /**< How much traffic wants to use the lane. */
 } SafeLane;
 
 
@@ -209,7 +209,7 @@ struct SpaceNode_ {
    SafeLane *lanes; /**< Linked lanes */
    int id; /**< ID */
    int nlanes; /**< nb of linked lanes */
-   double weight; /**< Importance of this node */
+   double *weight; /**< Importance of this node for different factions */
    double length; /**< Length from first node in pathfinder */
    SafeLane *way; /**< Way to the first node in pathfinder */
 };
@@ -325,8 +325,11 @@ JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys );
 void system_computeSafeLanes(StarSystem *sys);
 void lane_populate ( SafeLane *lane );
 void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k );
-double lane_activate ( double remain_presence );
-void lane_flowPathfinder( SafeLane *lane );
+double lane_activate ( double remain_presence, int faction, StarSystem *sys );
+void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
+void lane_factionRetreat( SafeLane *lane, int faction, StarSystem *sys );
+void lane_factionAdd( SafeLane *lane, int faction, StarSystem *sys );
+int lane_isFaction( SafeLane *lane, int faction, StarSystem *sys );
 
 
 /*

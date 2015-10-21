@@ -50,6 +50,7 @@
  </faction>
  <faction name="Frontier">
   <known/>
+  <lanes/>
   <logo>frontier</logo>
   <longname>Frontier Alliance</longname>
   <player>3</player>
@@ -104,6 +105,7 @@
  </faction>
  <faction name="Empire">
   <known/>
+  <lanes/>
   <logo>empire</logo>
   <colour>green</colour>
   <player>1</player>
@@ -121,6 +123,7 @@
  </faction>
  <faction name="Soromid">
   <known/>
+  <lanes/>
   <logo>soromid</logo>
   <colour>orange</colour>
   <player>0</player>
@@ -171,6 +174,7 @@
  </faction>
  <faction name="Dvaered">
   <known/>
+  <lanes/>
   <logo>dvaered</logo>
   <colour>brown</colour>
   <longname>House Dvaered</longname>
@@ -188,6 +192,7 @@
  </faction>
  <faction name="Za'lek">
   <known/>
+  <lanes/>
   <logo>zalek</logo>
   <colour>DarkRed</colour>
   <longname>House Za'lek</longname>
@@ -203,6 +208,7 @@
  </faction>
  <faction name="Sirius">
   <known/>
+  <lanes/>
   <logo>sirius</logo>
   <colour>aqua</colour>
   <longname>House Sirius</longname>
@@ -219,6 +225,7 @@
  </faction>
  <faction name="Goddard">
   <known/>
+  <lanes/>
   <logo>goddard</logo>
   <colour>blue</colour>
   <longname>House Goddard</longname>
@@ -360,6 +367,7 @@
   <enemies />
  </faction>
  <faction name="Nasin">
+  <lanes/>
   <invisible />
   <logo>sirius</logo>
   <standing>nasin</standing>
