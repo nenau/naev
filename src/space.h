@@ -191,10 +191,9 @@ typedef struct SafeLane_ {
    SpaceNode *node1, *node2; /**< Nodes linked by this lane. */
    int active; /**< Wether the lane will be a patrol lane. */
    int shouldExist; /**< 0 if this lane is un-activable, 1 in normal case and 2 if lane must exist */
-   int *factions; /**< Pointer to an array of factions patrolling the lane. */
+   int faction; /**< The faction patrolling the lane. */
    int nfactions; /**< Number of factions patrolling the lane. */
    int id; /**< ID */
-   double *usefulness; /**< How useful this lane is for the different factions*/
    double length; /**< The price of the lane */
    double flow; /**< How much traffic will use the lane. */
    double *pressure; /**< How much traffic wants to use the lane. */
@@ -327,9 +326,6 @@ void lane_populate ( SafeLane *lane );
 void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k );
 double lane_activate ( double remain_presence, int faction, StarSystem *sys );
 void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
-void lane_factionRetreat( SafeLane *lane, int faction, StarSystem *sys );
-void lane_factionAdd( SafeLane *lane, int faction, StarSystem *sys );
-int lane_isFaction( SafeLane *lane, int faction, StarSystem *sys );
 
 
 /*

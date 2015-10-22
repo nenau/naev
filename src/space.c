@@ -2347,7 +2347,7 @@ void system_computeSafeLanes(StarSystem *sys)
          else if (areAllies(sys->presence[j].faction , sys->planets[i]->faction))
             snodes[k].weight[j] = sys->planets[i]->presenceAmount/2;
          else if (areEnemies(sys->presence[j].faction , sys->planets[i]->faction))
-            snodes[k].weight[j] = -1.;
+            snodes[k].weight[j] = 0.;
          else /* Neutral */
             snodes[k].weight[j] = sys->planets[i]->presenceAmount/4;
       }
@@ -2380,6 +2380,8 @@ void system_computeSafeLanes(StarSystem *sys)
             else /* Neutral */
                snodes[k].weight[j] += sys->jumps[i].target->presence[n].value/4;
          }
+         if (snodes[k].weight[j] < 0.)
+            snodes[k].weight[j] = 0.;
       }
 
       snodes[k].id = k;
@@ -2422,7 +2424,7 @@ void system_computeSafeLanes(StarSystem *sys)
    priceCoeff = 0.0075;
 
    for (i=0; i<sys->npresence; i++){
-      if (!faction_isFlag( faction_getFaction(sys->presence[i].faction) , FACTION_HASLANES ))
+      if (!faction_HasLanes( sys->presence[i].faction ))
          continue;
 
       cost = 0.;
@@ -2432,10 +2434,10 @@ void system_computeSafeLanes(StarSystem *sys)
          lanes[j].active = 1;
 
          /* FACTION_PLAYER marks lanes that no faction choosed */
-         if (lanes[j].factions[0] == FACTION_PLAYER &&
+         if (lanes[j].faction == FACTION_PLAYER &&
                lanes[j].length * priceCoeff < sys->presence[i].value &&
                lanes[j].pressure[getPresenceIndex(sys, sys->presence[i].faction)] > 0.){
-            lanes[j].factions[0] = sys->presence[i].faction;
+            lanes[j].faction = sys->presence[i].faction;
             /* Compute the cost of the lanes mesh */
             cost += lanes[j].length * priceCoeff;
          }
@@ -2450,7 +2452,7 @@ void system_computeSafeLanes(StarSystem *sys)
 
    /* Post-process algorithm : if a lane wasn't chosen, de-activate it */
    for (j=0; j<nlanes; j++){
-      if (lanes[j].factions[0] == FACTION_PLAYER)
+      if (lanes[j].faction == FACTION_PLAYER)
          lanes[j].active = 0;
       else {
          lanes[j].active = 1;
@@ -2477,16 +2479,13 @@ void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k )
    lanes[k].active = 1;
    lanes[k].shouldExist = 1;
    lanes[k].nfactions = 1;
-   lanes[k].factions = malloc( sizeof(int) * sys->npresence );
-   lanes[k].usefulness = malloc( sizeof(int) * lanes[k].nfactions );
 
    /* Use FACTION_PLAYER as NULL faction */
-   lanes[k].factions[0] = FACTION_PLAYER;
+   lanes[k].faction = FACTION_PLAYER;
    for (j=0; j<sys->npresence; j++){
       lanes[k].pressure[j] = n1->weight[j] * n2->weight[j];
    }
 
-   lanes[k].usefulness[0] = 0.;
    lanes[k].flow = 0.;
 
    lanes[k].id = k;
@@ -2523,7 +2522,7 @@ void lane_populate ( SafeLane *lane )
    vect_cset( &vv, 0., 0.);
    for (i=0; i<nturret; i++){
       vect_cset( &vp, v1.x + (v2.x-v1.x) * (i+1)*distance/length, v1.y + (v2.y-v1.y) * (i+1)*distance/length);
-      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->factions[0], "baddie", 0., &vp, &vv, flags, -1 );
+      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->faction, "baddie", 0., &vp, &vv, flags, -1 );
    }
 }
 
@@ -2539,7 +2538,7 @@ void lane_populate ( SafeLane *lane )
 double lane_activate ( double remain_presence, int faction, StarSystem *sys )
 {
    int k, n;
-   double ardu, curardu, worstuse, priceCoeff, noLaneCoeff;
+   double ardu, curardu, worstuse, priceCoeff, noLaneCoeff, usefulness;
    SafeLane *worstLane;
 
    /* ardu messes the average arduousness for ships */
@@ -2572,7 +2571,7 @@ double lane_activate ( double remain_presence, int faction, StarSystem *sys )
 
    /* Loop over all the lanes without faction in order to estimate how useful they are */
    for (n=0; n<nlanes; n++){
-      if (lanes[n].factions[0] != faction) continue;
+      if (lanes[n].faction != faction) continue;
 
       lanes[n].active = 0;
 
@@ -2591,9 +2590,9 @@ double lane_activate ( double remain_presence, int faction, StarSystem *sys )
          /* Re-init the flow for later use */
          lanes[k].flow = 0.;
       }
-      lanes[n].usefulness[0] = (curardu - ardu)/lanes[n].length ;
-      if (lanes[n].usefulness[0] < worstuse){
-         worstuse = lanes[n].usefulness[0];
+      usefulness = (curardu - ardu)/lanes[n].length ;
+      if (usefulness < worstuse){
+         worstuse = usefulness;
          worstLane = &lanes[n];
       }
 
@@ -2604,54 +2603,12 @@ double lane_activate ( double remain_presence, int faction, StarSystem *sys )
    /* Finally : retreat from the worst lane */
    if (worstLane != NULL){
       worstLane->active = 0;
-      worstLane->factions[0] = FACTION_PLAYER;
+      worstLane->faction = FACTION_PLAYER;
       return remain_presence - worstLane->length * priceCoeff;
    }
 
    /* No lane was de-activated : no need to iterate further : return a negative number */
    return -1.;
-}
-
-
-/**
- * @brief Tests to know if a faction is in a lane
- */
-int lane_isFaction( SafeLane *lane, int faction, StarSystem *sys )
-{
-   return (lane->factions[getPresenceIndex( sys, faction )] == faction);
-}
-
-
-/**
- * @brief Remove a faction from a lane
- */
-void lane_factionRetreat( SafeLane *lane, int faction, StarSystem *sys )
-{
-   int isnull = 1, i;
-
-   lane->factions[getPresenceIndex( sys, faction )] = FACTION_PLAYER;
-
-   /* If there is no more faction on the lane, de-activate it */
-   for (i=0; i<sys->npresence; i++){
-      if (lane->factions[i] != FACTION_PLAYER)
-         isnull = 0;
-   }
-
-   if (isnull)
-      lane->active = 0;
-
-}
-
-
-/**
- * @brief Add a faction to a lane
- */
-void lane_factionAdd( SafeLane *lane, int faction, StarSystem *sys )
-{
-   lane->factions[getPresenceIndex( sys, faction )] = faction;
-
-   /* activate it */
-   lane->active = 1;
 }
 
 
@@ -2746,7 +2703,8 @@ void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys )
    /* Loop over the lanes in target->way and add the flow */
    for (i=0; i<nlanes; i++){
       if (lane->node2->way[i].id != nulLane.id){
-         lanes[lane->node2->way[i].id].flow += lane->pressure[getPresenceIndex(sys, faction)];
+         lanes[lane->node2->way[i].id].flow += 
+               lane->pressure[getPresenceIndex(sys, faction)];
       }
    }
 

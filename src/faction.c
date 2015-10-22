@@ -28,8 +28,66 @@
 #include "hook.h"
 #include "space.h"
 
+
+#define XML_FACTION_ID     "Factions"   /**< XML section identifier */
+#define XML_FACTION_TAG    "faction" /**< XML tag identifier. */
+
+
+#define CHUNK_SIZE         32 /**< Size of chunk for allocation. */
+
+#define FACTION_STATIC        (1<<0) /**< Faction doesn't change standing with player. */
+#define FACTION_INVISIBLE     (1<<1) /**< Faction isn't exposed to the player. */
+#define FACTION_KNOWN         (1<<2) /**< Faction is known to the player. */
+#define FACTION_HASLANES      (1<<3) /**< Faction builds lanes. */
+
+#define faction_setFlag(fa,f) ((fa)->flags |= (f))
+#define faction_rmFlag(fa,f)  ((fa)->flags &= ~(f))
+#define faction_isFlag(fa,f)  ((fa)->flags & (f))
+#define faction_isKnown_(fa)   ((fa)->flags & (FACTION_KNOWN))
+
+/**
+ * @struct Faction
+ *
+ * @brief Represents a faction.
+ */
+typedef struct Faction_ {
+   char *name; /**< Normal Name. */
+   char *longname; /**< Long Name. */
+   char *displayname; /**< Display name. */
+
+   /* Graphics. */
+   glTexture *logo_small; /**< Small logo. */
+   glTexture *logo_tiny; /**< Tiny logo. */
+   const glColour *colour; /**< Faction specific colour. */
+
+   /* Enemies */
+   int *enemies; /**< Enemies by ID of the faction. */
+   int nenemies; /**< Number of enemies. */
+
+   /* Allies */
+   int *allies; /**< Allies by ID of the faction. */
+   int nallies; /**< Number of allies. */
+
+   /* Player information. */
+   double player_def; /**< Default player standing. */
+   double player; /**< Standing with player - from -100 to 100 */
+
+   /* Scheduler. */
+   lua_State *sched_state; /**< Lua scheduler script. */
+
+   /* Behaviour. */
+   lua_State *state; /**< Faction specific state. */
+
+   /* Equipping. */
+   lua_State *equip_state; /**< Faction equipper state. */
+
+   /* Flags. */
+   unsigned int flags; /**< Flags affecting the faction. */
+} Faction;
+
 static Faction* faction_stack = NULL; /**< Faction stack. */
 int faction_nstack = 0; /**< Number of factions in the faction stack. */
+
 
 /*
  * Prototypes
@@ -1558,12 +1616,12 @@ int *faction_getGroup( int *n, int which )
 
 
 /**
- * @brief Returns a pointer to the faction object
+ * @brief Returns 1 if the faction builds lanes
  *
  *    @param f : the faction's ID.
  */
-Faction* faction_getFaction( int f )
+int faction_HasLanes( int f )
 {
-   return &faction_stack[f];
+   return (faction_isFlag(&faction_stack[f], FACTION_HASLANES));
 }
 
