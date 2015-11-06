@@ -420,7 +420,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
    Fleet *flt;
    Ship *ship;
    const char *fltname, *fltai, *faction;
-   int i, first;
+   int i, first, j, nenemies, protected;
    unsigned int p;
    double a, r;
    Vector2d vv,vp, vn;
@@ -438,6 +438,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
    int *ind, nind;
    double chance;
    int ignore_rules;
+   int* enemies;
 
    /* Default values. */
    pilot_clearFlagsRaw( flags );
@@ -543,18 +544,44 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
             /* The jump into the system must not be exit-only, and unless
              * ignore_rules is set, must also be non-hidden and have faction
              * presence matching the pilot's on the remote side.
+             * If the faction avoids protected lanes, the jump must not be 
+             * protected by any of the faction's enemies.
+             * factions avoiding lanes use hidden jumps.
              */
+
+            protected = 0;
             target = jump_getTarget( cur_system, cur_system->jumps[i].target );
+
+            if (faction_AvoidLanes( lf.f ) && !jp_isFlag( target, JP_EXITONLY ) &&
+                  !jp_isFlag( &cur_system->jumps[i], JP_HIDDEN )){
+               enemies = faction_getEnemies( lf.f, &nenemies );
+               for (j=0; j<nenemies; j++){
+                  if (jump_protected(&cur_system->jumps[i], enemies[j])){
+                     protected = 1;
+                     break;
+                  }
+               }
+            }
+
             if (!jp_isFlag( target, JP_EXITONLY ) && (ignore_rules ||
-                  (!jp_isFlag( &cur_system->jumps[i], JP_HIDDEN ) &&
-                  (system_getPresence( cur_system->jumps[i].target, lf.f ) > 0))))
+                  ((!jp_isFlag( &cur_system->jumps[i], JP_HIDDEN) || 
+                  faction_AvoidLanes( lf.f ) ) &&
+                  (system_getPresence( cur_system->jumps[i].target, lf.f ) > 0) &&
+                  !protected )))
                jumpind[ njumpind++ ] = i;
          }
       }
 
       /* Crazy case no landable nor presence, we'll just jump in randomly. */
       if ((nind == 0) && (njumpind==0)) {
-         if (cur_system->njumps > 0) {
+         /* If the faction avoids enemies lanes, create the ship outside the map */
+         if (faction_AvoidLanes( lf.f )){
+            a = RNGF() * 2. * M_PI;
+            r = cur_system->radius + 5000 * (1+RNGF());
+            vect_cset( &vp, r * cos(a), r * sin(a) );
+            vectnull( &vv );
+         }
+         else if (cur_system->njumps > 0) {
             jumpind = malloc( sizeof(int) * cur_system->njumps );
             for (i=0; i<cur_system->njumps; i++)
                jumpind[ njumpind++ ] = i;

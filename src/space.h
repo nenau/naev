@@ -316,6 +316,7 @@ int planet_setRadiusFromGFX(Planet* planet);
  */
 JumpPoint* jump_get( const char* jumpname, const StarSystem* sys );
 JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys );
+int jump_protected(JumpPoint* jump, int faction );
 
 
 /*

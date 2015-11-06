@@ -39,6 +39,7 @@
 #define FACTION_INVISIBLE     (1<<1) /**< Faction isn't exposed to the player. */
 #define FACTION_KNOWN         (1<<2) /**< Faction is known to the player. */
 #define FACTION_HASLANES      (1<<3) /**< Faction builds lanes. */
+#define FACTION_AVOIDLANES    (1<<4) /**< Faction avoids to spawn ships if the enemy has lanes. */
 
 #define faction_setFlag(fa,f) ((fa)->flags |= (f))
 #define faction_rmFlag(fa,f)  ((fa)->flags &= ~(f))
@@ -1202,6 +1203,11 @@ static int faction_parse( Faction* temp, xmlNodePtr parent )
          continue;
       }
 
+      if (xml_isNode(node, "guerrilla")) {
+         faction_setFlag(temp, FACTION_AVOIDLANES);
+         continue;
+      }
+
       if (xml_isNode(node, "equip")) {
          if (temp->equip_state != NULL)
             WARN("Faction '%s' has duplicate 'equip' tag.", temp->name);
@@ -1624,4 +1630,15 @@ int faction_HasLanes( int f )
 {
    return (faction_isFlag(&faction_stack[f], FACTION_HASLANES));
 }
+
+/**
+ * @brief Returns 1 if the faction avoids lanes
+ *
+ *    @param f : the faction's ID.
+ */
+int faction_AvoidLanes( int f )
+{
+   return (faction_isFlag(&faction_stack[f], FACTION_AVOIDLANES));
+}
+
 

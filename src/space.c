@@ -973,6 +973,40 @@ JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys )
 
 
 /**
+ * @brief says if the selected jump point is patrolled by a given faction
+ *
+ *    @param jumpname Name of the target of the jump.
+ *    @param faction Faction to test.
+ *    @param sys System to look in.
+ *    @return boolean.
+ */
+int jump_protected(JumpPoint* jump, int faction )
+{
+   int i;
+   SpaceNode* node;
+
+   /* First get the node associated to the jump */
+   for (i=0; i<nsnodes; i++) {
+      if ( vect_dist(&snodes[i].pos, &jump->pos) < 10. ){
+         node = &snodes[i];
+         break;
+      }
+      if (i == nsnodes-1) 
+         WARN("Cannot find a space node that matches with jump point to %s",jump->target->name);
+   }
+   
+   /* Loop over the lanes of this node */
+   for (i=0; i<node->nlanes; i++) {
+      if ( lanes[node->lanes[i].id].faction == faction ){
+         return 1;
+      }
+   }
+
+   return 0;
+}
+
+
+/**
  * @brief Controls fleet spawning.
  *
  *    @param dt Current delta tick.
@@ -2322,7 +2356,7 @@ void systems_reconstructPlanets (void)
  */
 void system_computeSafeLanes(StarSystem *sys)
 {
-   int i, j, k, n, factn = 1, factnm2 = 1;
+   int i, j, k, n;
    double remain_presence, cost, priceCoeff;
 
    /* Allocate memory for nodes */
@@ -2392,15 +2426,9 @@ void system_computeSafeLanes(StarSystem *sys)
    }
 
    /* Allocate memory : first compute some factorial*/
-   if (nsnodes>1){
-      for (i=0; i<nsnodes; i++){
-         if (i<nsnodes-2)
-            factnm2 = factn*(i+1);
-         factn = factn*(i+1);
-      }
-      /* Then use the formula */
-      nlanes = factn/(2*factnm2);
-   }
+   if (nsnodes>1)
+      nlanes = (nsnodes * (nsnodes-1))/2;
+
    else {  /* There is only one asset/jump on this system */
       nlanes = 0;
    }

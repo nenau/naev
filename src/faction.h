@@ -53,6 +53,7 @@ char faction_getColourChar( int f );
 int areEnemies( int a, int b );
 int areAllies( int a, int b );
 int faction_HasLanes( int f );
+int faction_AvoidLanes( int f );
 
 /* load/free */
 int factions_load (void);

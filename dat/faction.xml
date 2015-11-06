@@ -85,6 +85,7 @@
   <colour>red</colour>
   <spawn>pirate</spawn>
   <standing>pirate</standing>
+  <guerrilla/>
   <equip>pirate</equip>
   <enemies>
    <enemy>Civilian</enemy>
@@ -167,6 +168,7 @@
   <colour>yellow</colour>
   <spawn>flf</spawn>
   <standing>flf</standing>
+  <guerrilla/>
   <equip>pirate</equip>
   <enemies>
    <enemy>Dvaered</enemy>
