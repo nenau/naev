@@ -1006,6 +1006,140 @@ int jump_protected(JumpPoint* jump, int faction )
 }
 
 
+/*
+ * @brief Computes the path to join a position from current pos
+ *
+ *    @param target Vector representing the coords of the target.
+ *    @param origin Vector representing the coords of the origin.
+ *    @param n nb of elements in the list.
+ *    @return list of coordinates of nodes to pass through.
+ */
+double* system_findpath( Vector2d* target, Vector2d* origin,int faction,  int* n )
+{
+   double dist, *list;
+   SpaceNode tarnode, ornode;
+   SafeLane* lane ;
+   int i, j, ieq, prevId, *list1, bre, retro;
+
+   tarnode.id = nsnodes;
+   ornode.id = nsnodes;
+   /* First find the closest node to the target and the origin */
+   dist = INFINITY;
+   for (i=0; i<nsnodes; i++) {
+      if ( vect_dist(&snodes[i].pos, target) < dist ){
+         tarnode = snodes[i];
+         dist = vect_dist(&snodes[i].pos, target);
+      }
+   }
+   dist = INFINITY;
+   for (i=0; i<nsnodes; i++) {
+      if ( vect_dist(&snodes[i].pos, origin) < dist ){
+         ornode = snodes[i];
+         dist = vect_dist(&snodes[i].pos, origin);
+      }
+   }
+
+   /* Cases : no nodes or same node */
+   if (tarnode.id == ornode.id)
+      return NULL;
+
+   /* Find the lane between these nodes */
+   for (i=0; i<tarnode.nlanes; i++){
+      bre = 0;
+      for (j=0; j< ornode.nlanes; j++){
+         if (tarnode.lanes[i].id == ornode.lanes[j].id){
+            lane = &tarnode.lanes[i];
+            bre = 1;  /* Must break both loops */
+            break;
+         }
+      }
+      if (bre) break;
+      if (i == tarnode.nlanes-1)
+         WARN("Cannot find a lane between 2 nodes");
+   }
+
+   /* if ornode is the node 2, need to reverse the list */
+   if (ornode.id == lane->node2->id) retro = 1;
+
+   list1 = lane_flowPathfinder(lane, faction, cur_system);
+
+   /* Postprocess of list1 */
+   *n = 2;
+   for (i=0; i<nlanes; i++){
+      if (list1[i] <= nlanes-1 )
+         *n = *n+2;
+   }
+
+   list = malloc(sizeof(double) * *n);
+
+   /*Ids of the nodes*/
+   list[0] = ornode.pos.x;
+   list[1] = ornode.pos.y;
+   prevId = ornode.id;
+
+   for (ieq=0; ieq<*n/2-1; ieq++){
+      /* Find the next node */
+
+      /* Reverse the list if needed */
+      if (retro) i = *n/2-2-ieq;
+      else i = ieq;
+
+      if (lanes[list1[i]].node1->id == prevId){
+         list[2*ieq+2] = lanes[list1[i]].node2->pos.x;
+         list[2*ieq+3] = lanes[list1[i]].node2->pos.y;
+         prevId = lanes[list1[i]].node2->id;
+      }
+      else{
+         list[2*ieq+2] = lanes[list1[i]].node1->pos.x;
+         list[2*ieq+3] = lanes[list1[i]].node1->pos.y;
+         prevId = lanes[list1[i]].node1->id;
+      }
+   }
+
+   return list;
+}
+
+
+/*
+ * @brief Chooses a node the faction should patrol
+ *
+ *    @param faction Faction.
+ *    @return list of the coordinates of the node.
+ */
+Vector2d system_getnode(int faction)
+{
+   double rndnumber;
+   int f, total, i;
+   
+   total = 0.;
+   f = getPresenceIndex(cur_system, faction);
+
+   /* First : loop over the nodes */
+   for (i=0; i<nsnodes; i++) {
+      total += snodes[i].weight[f];
+   }
+
+   rndnumber = RNGF()*total;
+
+   /*re-loop to spot the node*/
+   total = 0.;
+   for (i=0; i<nsnodes; i++) {
+      total += snodes[i].weight[f];
+      if (rndnumber <= total){
+         //DEBUG("goal.x = %d",snodes[i].pos);
+         //DEBUG("goal.y = %d",snodes[i].pos);
+         return snodes[i].pos;
+      }
+   }
+
+   /* We assume it is unpossible to have no node at all */
+   WARN("No node was chosen for faction %s",faction_name(faction));
+   //DEBUG("goal.x = %d",snodes[0].pos);
+   //DEBUG("goal.y = %d",snodes[0].pos);
+   return snodes[0].pos;
+}
+
+
 /**
  * @brief Controls fleet spawning.
  *
@@ -2162,8 +2296,8 @@ int system_rmJump( StarSystem *sys, const char *jumpname )
       return -1;
    }
 
-   /* Remove it to the number of not hidden jumps */
-   if (!jp_isFlag(jump,JP_HIDDEN))
+   /* Remove it to the number of not hidden/exitonly jumps */
+   if (!jp_isFlag(jump,JP_HIDDEN) && !jp_isFlag(jump,JP_EXITONLY))
       sys->ljumps--;
 
    /* Remove jump from system. */
@@ -2396,7 +2530,7 @@ void system_computeSafeLanes(StarSystem *sys)
    /* Don't forget the jumps */
    for (i=0; i<sys->njumps; i++){
       /* No lane from a hidden jump */
-      if ( jp_isFlag(&sys->jumps[i], JP_HIDDEN) )
+      if ( jp_isFlag(&sys->jumps[i], JP_HIDDEN) || jp_isFlag(&sys->jumps[i],JP_EXITONLY) )
          continue;
       snodes[k].pos = sys->jumps[i].pos;
 
@@ -2645,7 +2779,7 @@ double lane_activate ( double remain_presence, int faction, StarSystem *sys )
  *
  * A Pathfinder (Dijkstra) computes the shortest way and adds the flow to the lanes on this way
  */
-void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys )
+int* lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys )
 {
    double noLaneCoeff = 3.;
    SpaceNode **front;
@@ -2654,9 +2788,11 @@ void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys )
    double curLen;
    SpaceNode *n1, *n2;
    int i, j, k;
+   int* list;
 
    /* Memory management */
    front = malloc( sizeof(SpaceNode) * nsnodes );
+   list = malloc( sizeof(int) * nlanes );
 
    /* Init */
    nulNode.id = nsnodes+1;
@@ -2733,14 +2869,22 @@ void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys )
       if (lane->node2->way[i].id != nulLane.id){
          lanes[lane->node2->way[i].id].flow += 
                lane->pressure[getPresenceIndex(sys, faction)];
+         //*n += 1;
+         //list = realloc(list, sizeof(int)*n);
       }
+      list[i] = lane->node2->way[i].id;
    }
+
+   /* Return the list of indices */
+   return list;
 
    /* Memory management */
    free(front);
+   free (list);
    for (i=0; i<nsnodes; i++){
      free(snodes[i].way);
    }
+
 }
 
 
@@ -2981,8 +3125,8 @@ static int system_parseJumpPointDiff( const xmlNodePtr node, StarSystem *sys )
    /* Added jump. */
    sys->njumps++;
 
-   /* Add it to the number of not hidden jumps */
-   if (!jp_isFlag(j,JP_HIDDEN))
+   /* Add it to the number of not hidden/exitonly jumps */
+   if (!jp_isFlag(j,JP_HIDDEN) && !jp_isFlag(j,JP_EXITONLY))
       sys->ljumps++;
 
    return 0;
@@ -3095,7 +3239,7 @@ static int system_parseJumpPoint( const xmlNodePtr node, StarSystem *sys )
    sys->njumps++;
 
    /* Add it to the number of not hidden jumps */
-   if (!jp_isFlag(j,JP_HIDDEN))
+   if (!jp_isFlag(j,JP_HIDDEN) && !jp_isFlag(j,JP_EXITONLY))
       sys->ljumps++;
 
    return 0;

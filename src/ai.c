@@ -206,6 +206,7 @@ static int aiL_land( lua_State *L ); /* bool land() */
 static int aiL_stop( lua_State *L ); /* stop() */
 static int aiL_relvel( lua_State *L ); /* relvel( number ) */
 static int aiL_follow_accurate( lua_State *L ); /* follow_accurate() */
+static int aiL_findpath( lua_State *L ); /* findpath() */
 
 /* Hyperspace. */
 static int aiL_nearhyptarget( lua_State *L ); /* pointer rndhyptarget() */
@@ -297,6 +298,7 @@ static const luaL_reg aiL_methods[] = {
    { "stop", aiL_stop },
    { "relvel", aiL_relvel },
    { "follow_accurate", aiL_follow_accurate },
+   { "findpath", aiL_findpath },
    /* Hyperspace. */
    { "nearhyptarget", aiL_nearhyptarget },
    { "rndhyptarget", aiL_rndhyptarget },
@@ -2684,6 +2686,45 @@ static int aiL_follow_accurate( lua_State *L )
    return 1;
 
 }
+
+
+/*
+ * @brief Computes the path to join a position from current pos
+ *
+ *    @luaparam target The goal
+ * @luafunc findpath( target )
+ */
+static int aiL_findpath( lua_State *L )
+{
+   Vector2d* target, origin;
+   LuaVector *lv;
+   int n, faction, lane, k, i;
+   double* list;
+
+   n = 0;
+   lv = lua_tovector(L,1);
+   target = &lv->vec;
+   origin = cur_pilot->solid->pos;
+   faction = cur_pilot->faction;
+
+   list = system_findpath(target, &origin, faction, &n);
+
+   lua_newtable(L);
+   k = 1;
+
+   for (i=0; i<n; i++) {
+      lua_pushnumber(L, k++); /* key */
+      lane = list[i];
+      lua_pushnumber(L, lane); /* value */
+      lua_rawset(L,-3); /* table[key] = value */
+   }
+
+   /**/
+   /*lv.vec = origin;
+   lua_pushvector(lv);*/
+   return 1;
+}
+
 
 /*
  * completely stops the pilot if it is below minimum vel error (no insta-stops)

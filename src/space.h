@@ -322,11 +322,13 @@ int jump_protected(JumpPoint* jump, int faction );
 /*
  * Safe lanes stuff
  */
+double* system_findpath( Vector2d* target, Vector2d* origin, int faction, int* n );
 void system_computeSafeLanes(StarSystem *sys);
 void lane_populate ( SafeLane *lane );
 void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k );
 double lane_activate ( double remain_presence, int faction, StarSystem *sys );
-void lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
+int* lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
+Vector2d system_getnode(int faction);
 
 
 /*

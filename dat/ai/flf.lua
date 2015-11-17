@@ -8,6 +8,7 @@ mem.armour_run     = 100
 mem.shield_return  = 20
 mem.land_planet    = false
 mem.careful       = true
+mem.followlanes    = false
 
 
 function create ()

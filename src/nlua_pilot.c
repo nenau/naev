@@ -139,6 +139,7 @@ static int pilotL_hyperspace( lua_State *L );
 static int pilotL_land( lua_State *L );
 static int pilotL_hailPlayer( lua_State *L );
 static int pilotL_hookClear( lua_State *L );
+static int pilotL_getnode( lua_State *L );
 static const luaL_reg pilotL_methods[] = {
    /* General. */
    { "addRaw", pilotL_addFleetRaw },
@@ -234,6 +235,7 @@ static const luaL_reg pilotL_methods[] = {
    /* Misc. */
    { "hailPlayer", pilotL_hailPlayer },
    { "hookClear", pilotL_hookClear },
+   { "getNode", pilotL_getnode },
    {0,0}
 }; /**< Pilot metatable methods. */
 static const luaL_reg pilotL_cond_methods[] = {
@@ -552,7 +554,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
             protected = 0;
             target = jump_getTarget( cur_system, cur_system->jumps[i].target );
 
-            if (faction_AvoidLanes( lf.f ) && !jp_isFlag( target, JP_EXITONLY ) &&
+            if (faction_AvoidLanes( lf.f ) && !jp_isFlag( &cur_system->jumps[i], JP_EXITONLY ) &&
                   !jp_isFlag( &cur_system->jumps[i], JP_HIDDEN )){
                enemies = faction_getEnemies( lf.f, &nenemies );
                for (j=0; j<nenemies; j++){
@@ -4146,6 +4148,28 @@ static int pilotL_hookClear( lua_State *L )
    pilot_clearHooks( p );
 
    return 0;
+}
+
+
+/**
+ * @brief Gets a random space node the pilot should patrol
+ *
+ *    @luaparam p Pilot to get node from.
+ *    @luareturn vector of the coordinates of the node
+ * @luafunc getNode( f )
+ */
+static int pilotL_getnode( lua_State *L )
+{
+   LuaVector lv;
+   int f;
+   Pilot *p;
+
+   p = luaL_validpilot(L,1);
+   f = p->faction;
+   lv.vec = system_getnode(f);
+   lua_pushvector(L, lv);
+
+   return 1;
 }
 
 

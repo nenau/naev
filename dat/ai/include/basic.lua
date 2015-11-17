@@ -190,6 +190,52 @@ function follow_accurate ()
 end
 
 --[[
+-- Goes to a position with the pathfinder
+--]]
+function goto_path ()
+   mem.list = ai.findpath(ai.target())
+   mem.nbnodes = 0
+   if ai.pilot():name() == "toto" then print(#mem.list) for i,j in ipairs(mem.list) do print(j) end end
+   ai.pushsubtask( "__gopath" )
+end
+function __gopath ()
+   local target
+   if #mem.list > 0 then
+      target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
+   else
+      target = ai.target()
+   end
+   local dist     = ai.dist( target )
+   local bdist    = ai.minbrakedist()
+
+   -- 2 methods depending on mem.careful
+   local dir
+   if not mem.careful or dist < 3*bdist then
+      dir = ai.face( target )
+   else
+      dir = ai.careful_face( target )
+   end
+
+   -- Need to get closer
+   if dir < 10 and dist > bdist then
+      ai.accel()
+
+   -- Need to start braking or to change target
+   elseif dist < bdist then
+      if 2*mem.nbnodes+2 < #mem.list then
+         mem.nbnodes = mem.nbnodes + 1
+      else
+         ai.pushsubtask( "__gostop" )
+      end
+   end
+
+end
+function __gostop ()
+   ai.brake()
+   ai.poptask()
+end
+
+--[[
 -- Tries to runaway and jump asap.
 --]]
 function __runaway ()
@@ -271,11 +317,19 @@ function land ()
       end
    end
 
+   -- Manage pathfinder
+   mem.list = ai.findpath(mem.land)
+   mem.nbnodes = 0
+
    ai.pushsubtask( "__landgo" )
 end
 function __landgo ()
-   local target   = mem.land
-   
+   local target
+   if #mem.list > 0 then
+      target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
+   else
+      target = mem.land
+   end
    local dist     = ai.dist( target )
    local bdist    = ai.minbrakedist()
 
@@ -291,9 +345,13 @@ function __landgo ()
    if dir < 10 and dist > bdist then
       ai.accel()
 
-   -- Need to start braking
+   -- Need to start braking or to change target
    elseif dist < bdist then
-      ai.pushsubtask( "__landstop" )
+      if 2*mem.nbnodes+2 < #mem.list then
+         mem.nbnodes = mem.nbnodes + 1
+      else
+         ai.pushsubtask( "__landstop" )
+      end
    end
 
 end
@@ -419,10 +477,17 @@ function hyperspace ()
          return
       end
    end
+   mem.list = ai.findpath(target)
+   mem.nbnodes = 0
    ai.pushsubtask( "__hyp_approach", target )
 end
 function __hyp_approach ()
-   local target   = ai.subtarget()
+   local target
+   if #mem.list > 0 then
+      target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
+   else
+      target = ai.subtarget()
+   end
    local dir
    local dist     = ai.dist( target )
    local bdist    = ai.minbrakedist()
@@ -439,7 +504,11 @@ function __hyp_approach ()
       ai.accel()
    -- Need to start braking
    elseif dist < bdist then
-      ai.pushsubtask("__hyp_brake")
+      if 2*mem.nbnodes+2 < #mem.list then
+         mem.nbnodes = mem.nbnodes + 1
+      else
+         ai.pushsubtask( "__hyp_brake" )
+      end
    end
 end
 function __hyp_brake ()

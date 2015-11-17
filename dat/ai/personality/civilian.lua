@@ -15,7 +15,11 @@ function idle ()
    else -- Stay. Have a beer.
       sysrad = rnd.rnd() * system.cur():radius()
       angle = rnd.rnd() * 2 * math.pi
-      ai.pushtask("__goto_nobrake", vec2.new(math.cos(angle) * sysrad, math.sin(angle) * sysrad))
+      if mem.followlanes then
+         ai.pushtask("goto_path", vec2.new(math.cos(angle) * sysrad, math.sin(angle) * sysrad))
+      else
+         ai.pushtask("__goto_nobrake", vec2.new(math.cos(angle) * sysrad, math.sin(angle) * sysrad))
+      end
    end
    mem.loiter = mem.loiter - 1
 end
