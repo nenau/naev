@@ -1371,7 +1371,7 @@ void pilot_updateDisable( Pilot* p, const unsigned int shooter )
 
       /* Disabled ships don't use up presence. */
       if (p->presence > 0) {
-         system_rmCurrentPresence( cur_system, p->faction, p->presence );
+         system_rmCurrentPresence( cur_system, p->undercover, p->presence );
          p->presence = 0;
       }
 
@@ -2301,8 +2301,8 @@ credits_t pilot_modCredits( Pilot *p, credits_t amount )
  *    @param vel Initial velocity.
  *    @param flags Used for tweaking the pilot.
  */
-void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const char *ai,
-      const double dir, const Vector2d* pos, const Vector2d* vel,
+void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, int hidden_faction,
+      const char *ai, const double dir, const Vector2d* pos, const Vector2d* vel,
       const PilotFlags flags, const int systemFleet )
 {
    int i, p;
@@ -2324,6 +2324,7 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
 
    /* faction */
    pilot->faction = faction;
+   pilot->undercover = hidden_faction;
 
    /* System fleet. */
    pilot->systemFleet = systemFleet;
@@ -2450,8 +2451,8 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
  *
  * @sa pilot_init
  */
-unsigned int pilot_create( Ship* ship, const char* name, int faction, const char *ai,
-      const double dir, const Vector2d* pos, const Vector2d* vel,
+unsigned int pilot_create( Ship* ship, const char* name, int faction, int hidden_faction,
+      const char *ai, const double dir, const Vector2d* pos, const Vector2d* vel,
       const PilotFlags flags, const int systemFleet )
 {
    Pilot *dyn;
@@ -2477,7 +2478,7 @@ unsigned int pilot_create( Ship* ship, const char* name, int faction, const char
    pilot_nstack++; /* there's a new pilot */
 
    /* Initialize the pilot. */
-   pilot_init( dyn, ship, name, faction, ai, dir, pos, vel, flags, systemFleet );
+   pilot_init( dyn, ship, name, faction, hidden_faction, ai, dir, pos, vel, flags, systemFleet );
 
    return dyn->id;
 }
@@ -2503,7 +2504,7 @@ Pilot* pilot_createEmpty( Ship* ship, const char* name,
       return 0;
    }
    pilot_setFlagRaw( flags, PILOT_EMPTY );
-   pilot_init( dyn, ship, name, faction, ai, 0., NULL, NULL, flags, -1 );
+   pilot_init( dyn, ship, name, faction, faction, ai, 0., NULL, NULL, flags, -1 );
    return dyn;
 }
 
@@ -2666,7 +2667,7 @@ void pilot_destroy(Pilot* p)
 
    /* Remove faction if necessary. */
    if (p->presence > 0) {
-      system_rmCurrentPresence( cur_system, p->faction, p->presence );
+      system_rmCurrentPresence( cur_system, p->undercover, p->presence );
       p->presence = 0;
    }
 

@@ -1,6 +1,5 @@
 -- Default task to run when idle
 function idle ()
-   if ai.pilot():name() == "toto" then print("idle") end
    if mem.loiter == nil then mem.loiter = 3 end
    if mem.loiter == 0 then -- Try to leave.
        local planet = ai.landplanet( mem.land_friendly )
@@ -17,7 +16,6 @@ function idle ()
        end
    else -- Stay. Have a beer.
       if mem.followlanes then
-         if ai.pilot():name() == "toto" then print("followlane") end
          goal = ai.pilot():getNode()
          ai.pushtask("goto_path", goal)
       else

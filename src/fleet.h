@@ -41,6 +41,7 @@ typedef struct FleetPilot_ {
 typedef struct Fleet_ {
    char* name; /**< Fleet name, used as the identifier. */
    int faction; /**< Faction of the fleet. */
+   int undercover; /**< Faction of the fleet. */
    char *ai; /**< AI profile to use. */
    FleetPilot* pilots; /**< The pilots in the fleet. */
    int npilots; /**< Total number of pilots. */

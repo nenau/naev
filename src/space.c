@@ -1126,17 +1126,72 @@ Vector2d system_getnode(int faction)
    for (i=0; i<nsnodes; i++) {
       total += snodes[i].weight[f];
       if (rndnumber <= total){
-         //DEBUG("goal.x = %d",snodes[i].pos);
-         //DEBUG("goal.y = %d",snodes[i].pos);
          return snodes[i].pos;
       }
    }
 
    /* We assume it is unpossible to have no node at all */
    WARN("No node was chosen for faction %s",faction_name(faction));
-   //DEBUG("goal.x = %d",snodes[0].pos);
-   //DEBUG("goal.y = %d",snodes[0].pos);
    return snodes[0].pos;
+}
+
+
+/*
+ * @brief Is the position close to a hostile/friendly lane with a given faction?
+ *
+ *    @param pos Position witch is tested.
+ *    @param a max distance to lane.
+ *    @param faction Faction in question.
+ *    @param hostile 1 if hostile, 0 if friendly.
+ *    @return boolean 1 if true.
+ */
+int system_isOnAnyLane( Vector2d *pos, double a, int faction, int hostile )
+{
+   int i;
+   for (i=0; i<nlanes; i++){
+      if (lanes[i].active && ((areEnemies(faction, lanes[i].faction) && hostile) ||
+            (!areEnemies(faction, lanes[i].faction) && !hostile))){
+         /* Separate this one in order not to make too much computation */
+         if (system_isOnLane( &lanes[i], pos, a))
+            return 1;
+      }
+   }
+   return 0;
+}
+
+
+/*
+ * @brief Is the position close to a lane?
+ *
+ *    @param lane Lane.
+ *    @param pos Position witch is tested.
+ *    @param a max distance to lane.
+ *    @return boolean 1 if pos is on lane.
+ */
+int system_isOnLane( SafeLane *lane, Vector2d *pos, double a )
+{
+   double alpha, length, lane_x, lane_y, x_0, y_0, rota_x, rota_y;
+
+   lane_x = lane->node1->pos.x - lane->node2->pos.x;
+   lane_y = lane->node1->pos.y - lane->node2->pos.y;
+
+   /* Compute rotation and length of the lane */
+   alpha = ANGLE(lane_x, lane_y);
+   length = MOD(lane_x, lane_y);
+
+   /*Compute "center of lane" */
+   x_0 = 0.5*(lane->node1->pos.x + lane->node2->pos.x);
+   y_0 = 0.5*(lane->node1->pos.y + lane->node2->pos.y);
+   /* Change base : rotation+translation */
+   rota_x = cos(alpha)*(pos->x-x_0) + sin(alpha)*(pos->y-y_0);
+   rota_y = cos(alpha)*(pos->y-y_0) - sin(alpha)*(pos->x-x_0);
+
+   /* return 1 if pos is in the rectangle (l+2a) * 2a */
+
+   if (rota_x > -length/2-a && rota_x < length/2 + a &&
+       rota_y > -a && rota_y < a)
+      return 1;
+   return 0;
 }
 
 
@@ -2490,7 +2545,7 @@ void systems_reconstructPlanets (void)
  */
 void system_computeSafeLanes(StarSystem *sys)
 {
-   int i, j, k, n;
+   int i, j, k, n, m;
    double remain_presence, cost, priceCoeff;
 
    /* Allocate memory for nodes */
@@ -2518,6 +2573,21 @@ void system_computeSafeLanes(StarSystem *sys)
             snodes[k].weight[j] = 0.;
          else /* Neutral */
             snodes[k].weight[j] = sys->planets[i]->presenceAmount/4;
+      }
+
+      /* Loop over the previous nodes in order to find a node that is close to this one */
+      for (m=0; m<k; m++){
+         if (vect_dist(&snodes[k].pos, &snodes[m].pos) < 1000.){
+            for (j=0; j<sys->npresence; j++){
+               snodes[m].weight[j] += snodes[k].weight[j];
+            }
+            /* Remark : this is not really beautyful in case of more than one node... */
+            snodes[m].pos.x = 0.5*(snodes[m].pos.x + snodes[k].pos.x);
+            snodes[m].pos.y = 0.5*(snodes[m].pos.y + snodes[k].pos.y);
+            k--;   /* Decrement k in order to erase this node next time */
+            nsnodes--;
+            continue;
+         }
       }
 
       snodes[k].id = k;
@@ -2684,7 +2754,7 @@ void lane_populate ( SafeLane *lane )
    vect_cset( &vv, 0., 0.);
    for (i=0; i<nturret; i++){
       vect_cset( &vp, v1.x + (v2.x-v1.x) * (i+1)*distance/length, v1.y + (v2.y-v1.y) * (i+1)*distance/length);
-      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->faction, "baddie", 0., &vp, &vv, flags, -1 );
+      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->faction, lane->faction, "lane_turret", 0., &vp, &vv, flags, -1 );
    }
 }
 
@@ -4201,7 +4271,7 @@ void system_rmCurrentPresence( StarSystem *sys, int faction, double amount )
 
    /* Run lower hook. */
    L = faction_getScheduler( faction );
-
+   //DEBUG("%s",faction_name(faction));
 #if DEBUGGING
    lua_pushcfunction(L, nlua_errTrace);
    errf = -5;

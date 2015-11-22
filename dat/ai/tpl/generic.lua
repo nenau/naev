@@ -26,7 +26,8 @@ mem.weapset = 3 -- Weapon set that should be used (tweaked based on heat).
 mem.tickssincecooldown = 0 -- Prevents overly-frequent cooldown attempts.
 mem.norun = false -- Do not run away.
 mem.careful       = false -- Should the pilot try to avoid enemies?
-mem.followlanes   = true --Does follow the lanes
+mem.followlanes   = true -- Does the pilot follow the lanes?
+mem.undercover    = false -- Is the pilot using a false flag?
 
 --[[Control parameters: mem.radius and mem.angle are the polar coordinates 
 of the point the pilot has to follow when using follow_accurate.
@@ -61,6 +62,22 @@ function control ()
       end
    else
       mem.tickssincecooldown = mem.tickssincecooldown + 1
+   end
+
+   -- See if it's time to reveal the real faction
+   if mem.undercover and ai.nearestpilot() then
+      local p = ai.pilot()
+      if ai.nearestpilot():faction():areEnemies(p:faction(true)) and
+            not p:onLane(p:faction(true), true, 5000) and
+            vec2.dist(ai.nearestpilot():pos(), p:pos()) < 2000 then
+         -- Display the hidden faction
+         p:setFaction(p:faction(true))
+         if mem.realname then
+            p:rename(mem.realname)
+         end
+         mem.undercover = false
+         mem.followlanes = false
+      end
    end
 
    -- Reset distress if not fighting/running
@@ -106,6 +123,14 @@ function control ()
          else
             attack = true
          end
+
+         -- Ignore pilots in a dangerous aera
+         if (mem.followlanes and not enemy:onLane(enemy:faction(), true, 3000)
+                and ai.pilot():onLane(ai.pilot():faction(), false, 4500)) or 
+                (not mem.followlanes and enemy:onLane(enemy:faction(), false, 2000)) then
+            attack = false
+         end
+
       end
 
       -- See what decision to take
@@ -128,6 +153,14 @@ function control ()
 
       -- Needs to have a target
       if not target:exists() then
+         ai.poptask()
+         return
+      end
+
+      -- Ignore pilots in a dangerous aera
+      if (mem.followlanes and not target:onLane(target:faction(), true, 3000)
+             and ai.pilot():onLane(ai.pilot():faction(), false, 4500)) or 
+             (not mem.followlanes and target:onLane(target:faction(), false, 2000)) then
          ai.poptask()
          return
       end
@@ -205,6 +238,13 @@ function control ()
          attack = true
       end
 
+      -- Ignore pilots in a dangerous aera
+      if (mem.followlanes and not enemy:onLane(enemy:faction(), true, 3000)
+             and ai.pilot():onLane(ai.pilot():faction(), false, 4500)) or 
+             (not mem.followlanes and enemy:onLane(enemy:faction(), false, 2000)) then
+         attack = false
+      end
+
       -- See if really want to attack
       if attack then
          taunt(enemy, true)
@@ -234,6 +274,13 @@ function attacked ( attacker )
 
    -- Ignore hits from dead pilots.
    if not attacker:exists() then
+      return
+   end
+
+   -- Ignore hits if the attacker is in a dangerous aera
+   if (mem.followlanes and not attacker:onLane(attacker:faction(), true, 3000)
+          and ai.pilot():onLane(ai.pilot():faction(), false, 4500)) or 
+          (not mem.followlanes and attacker:onLane(attacker:faction(), false, 2000)) then
       return
    end
 

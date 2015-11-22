@@ -34,6 +34,17 @@
    <enemy>Pirate</enemy>
   </enemies>
  </faction>
+ <faction name="Fake_Civilian">
+  <display>Civilian</display>
+  <static />
+  <invisible />
+  <known/>
+  <player>0</player>
+  <colour>black</colour>
+  <standing>static</standing>
+  <allies/>
+  <enemies/>
+ </faction>
  <faction name="Proteron">
   <logo>proteron</logo>
   <longname>Proteron</longname>

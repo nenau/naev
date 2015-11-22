@@ -328,6 +328,8 @@ void lane_populate ( SafeLane *lane );
 void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k );
 double lane_activate ( double remain_presence, int faction, StarSystem *sys );
 int* lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
+int system_isOnLane( SafeLane *lane, Vector2d *pos, double a );
+int system_isOnAnyLane( Vector2d *pos, double a, int faction, int hostile );
 Vector2d system_getnode(int faction);
 
 

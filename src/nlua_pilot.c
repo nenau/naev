@@ -97,6 +97,7 @@ static int pilotL_setHilight( lua_State *L );
 static int pilotL_getColour( lua_State *L );
 static int pilotL_getHostile( lua_State *L );
 static int pilotL_flags( lua_State *L );
+static int pilotL_onLane( lua_State *L );
 static int pilotL_setActiveBoard( lua_State *L );
 static int pilotL_setNoDeath( lua_State *L );
 static int pilotL_disable( lua_State *L );
@@ -174,6 +175,7 @@ static const luaL_reg pilotL_methods[] = {
    { "colour", pilotL_getColour },
    { "hostile", pilotL_getHostile },
    { "flags", pilotL_flags },
+   { "onLane", pilotL_onLane },
    /* System. */
    { "clear", pilotL_clear },
    { "toggleSpawn", pilotL_toggleSpawn },
@@ -268,6 +270,7 @@ static const luaL_reg pilotL_cond_methods[] = {
    { "colour", pilotL_getColour },
    { "hostile", pilotL_getHostile },
    { "flags", pilotL_flags },
+   { "onLane", pilotL_onLane },
    /* Ship. */
    { "ship", pilotL_ship },
    { "cargoFree", pilotL_cargoFree },
@@ -428,7 +431,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
    Vector2d vv,vp, vn;
    FleetPilot *plt;
    LuaPilot lp;
-   LuaFaction lf;
+   LuaFaction lf, hf;
    LuaVector *lv;
    LuaSystem *ls;
    StarSystem *ss;
@@ -460,6 +463,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
       }
       faction = luaL_checkstring(L,4);
       lf.f = faction_get(faction);
+      hf.f = faction_get(faction);
       if (lf.f < 0) {
          NLUA_ERROR(L,"Faction '%s' not found in stack.", faction );
          return 0;
@@ -472,6 +476,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
          return 0;
       }
       lf.f = flt->faction;
+      hf.f = flt->undercover;
    }
 
    /* Parse second argument - Fleet AI Override */
@@ -637,7 +642,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
    lua_newtable(L);
    if (from_ship) {
       /* Create the pilot. */
-      p = pilot_create( ship, fltname, lf.f, fltai, a, &vp, &vv, flags, -1 );
+      p = pilot_create( ship, fltname, lf.f, hf.f, fltai, a, &vp, &vv, flags, -1 );
 
       /* we push each pilot created into a table and return it */
       lua_pushnumber(L,1); /* index, starts with 1 */
@@ -1825,22 +1830,32 @@ static int pilotL_temp( lua_State *L )
 /**
  * @brief Gets the pilot's faction.
  *
- * @usage f = p:faction()
+ * @usage f = p:faction( hidden )
  *
  *    @luaparam p Pilot to get the faction of.
+ *    @luaparam hidden Optional : sets if the pilot's hidden faction is asked.
  *    @luareturn The faction of the pilot.
- * @luafunc faction( p )
+ * @luafunc faction( p, hidden )
  */
 static int pilotL_faction( lua_State *L )
 {
    Pilot *p;
    LuaFaction f;
+   int hidden;
 
    /* Parse parameters */
    p     = luaL_validpilot(L,1);
 
+   hidden = 0;
+   if (lua_gettop(L) > 1) {
+      hidden = lua_toboolean(L,2);
+   }
+
    /* Push faction. */
-   f.f   = p->faction;
+   if (!hidden)
+      f.f   = p->faction;
+   else
+      f.f   = p->undercover;
    lua_pushfaction(L,f);
    return 1;
 }
@@ -3455,6 +3470,41 @@ static int pilotL_flags( lua_State *L )
       lua_pushboolean( L, pilot_isFlag( p, pL_flags[i].id ) );
       lua_setfield(L, -2, pL_flags[i].name);
    }
+   return 1;
+}
+
+
+/**
+ * @brief Says if the pilot is corrently on a patrolled lane.
+ *
+ * @usage p:onLane(faction, hostile, a)
+ *
+ *    @luaparam p Pilot to look at.
+ *    @luaparam faction Faction that is tested.
+ *    @luaparam hostile if true, take into account lanes hostile to this faction
+                if false, take into account lanes not hostile to this faction.
+ *    @luaparam a Max distance to the lane.
+ *    @luareturn boolean.
+ * @luafunc onLane(pilot, faction, hostile, a)
+ */
+static int pilotL_onLane( lua_State *L )
+{
+   int faction, hostile, answer;
+   Pilot *p;
+   double a;
+
+   /* Get the pilot. */
+   p = luaL_validpilot(L,1);
+   /* Get the faction*/
+   faction = luaL_validfaction(L,2);
+   /* Get the boolean*/
+   hostile = lua_toboolean(L,3);
+   /* Get the distance*/
+   a = luaL_checknumber(L,4);
+
+   answer = system_isOnAnyLane( &p->solid->pos, a, faction, hostile );
+   lua_pushboolean(L, answer);
+
    return 1;
 }
 

@@ -83,6 +83,7 @@ unsigned int fleet_createPilot( Fleet *flt, FleetPilot *plt, double dir,
    p = pilot_create( plt->ship,
          plt->name,
          flt->faction,
+         flt->undercover,
          (ai != NULL) ? ai :
                (plt->ai != NULL) ? plt->ai :
                      flt->ai,
@@ -125,6 +126,13 @@ static int fleet_parse( Fleet *temp, const xmlNodePtr parent )
       /* Set faction. */
       if (xml_isNode(node,"faction")) {
          temp->faction = faction_get(xml_get(node));
+         temp->undercover = temp->faction;
+         continue;
+      }
+
+      /* Set hidden faction. */
+      if (xml_isNode(node,"undercover")) {
+         temp->undercover = faction_get(xml_get(node));
          continue;
       }
 

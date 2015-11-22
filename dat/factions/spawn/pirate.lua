@@ -11,9 +11,12 @@ function spawn_patrol ()
     local pilots = {}
     local r = rnd.rnd()
 
-    if r < 0.3 then
+    if r < 0.2 then
+       scom.addPilot( pilots, "FC Hyena", 15 );
+       scom.addPilot( pilots, "FC Hyena", 15 );
+    elseif r < 0.4 then
        scom.addPilot( pilots, "Pirate Hyena", 15 );
-    elseif r < 0.5 then
+    elseif r < 0.6 then
        scom.addPilot( pilots, "Pirate Shark", 20 );
     elseif r < 0.8 then
        scom.addPilot( pilots, "Pirate Hyena", 15 );

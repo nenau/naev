@@ -195,12 +195,11 @@ end
 function goto_path ()
    mem.list = ai.findpath(ai.target())
    mem.nbnodes = 0
-   if ai.pilot():name() == "toto" then print(#mem.list) for i,j in ipairs(mem.list) do print(j) end end
    ai.pushsubtask( "__gopath" )
 end
 function __gopath ()
    local target
-   if #mem.list > 0 then
+   if mem.list[2*mem.nbnodes + 2] then
       target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
    else
       target = ai.target()
@@ -222,7 +221,7 @@ function __gopath ()
 
    -- Need to start braking or to change target
    elseif dist < bdist then
-      if 2*mem.nbnodes+2 < #mem.list then
+      if 2*mem.nbnodes <= #mem.list then
          mem.nbnodes = mem.nbnodes + 1
       else
          ai.pushsubtask( "__gostop" )
@@ -325,7 +324,7 @@ function land ()
 end
 function __landgo ()
    local target
-   if #mem.list > 0 then
+   if mem.list[2*mem.nbnodes + 2] then
       target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
    else
       target = mem.land
@@ -347,7 +346,7 @@ function __landgo ()
 
    -- Need to start braking or to change target
    elseif dist < bdist then
-      if 2*mem.nbnodes+2 < #mem.list then
+      if 2*mem.nbnodes <= #mem.list then
          mem.nbnodes = mem.nbnodes + 1
       else
          ai.pushsubtask( "__landstop" )
@@ -483,7 +482,7 @@ function hyperspace ()
 end
 function __hyp_approach ()
    local target
-   if #mem.list > 0 then
+   if mem.list[2*mem.nbnodes + 2] then
       target = vec2.new(mem.list[2*mem.nbnodes+1], mem.list[2*mem.nbnodes + 2])
    else
       target = ai.subtarget()
@@ -504,7 +503,7 @@ function __hyp_approach ()
       ai.accel()
    -- Need to start braking
    elseif dist < bdist then
-      if 2*mem.nbnodes+2 < #mem.list then
+      if 2*mem.nbnodes <= #mem.list then
          mem.nbnodes = mem.nbnodes + 1
       else
          ai.pushsubtask( "__hyp_brake" )
