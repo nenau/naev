@@ -504,8 +504,13 @@ function should_cooldown()
    if mem.tickssincecooldown < 15 then
       return
    -- The weapons are extremely hot and cooldown should be triggered.
+   -- This did not work before. However now it causes ships to just stop dead and wait for energy regen.
+   -- Not sure this is better...
    elseif mean > mem.heatthreshold and pshield > 50 then
       mem.cooldown = true
       ai.pilot():setCooldown(true)
+   end
+   if pshield == nil then
+      player.msg("pshield = nil")
    end
 end

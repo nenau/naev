@@ -171,7 +171,7 @@
   </flags>
   <avail>
    <priority>2</priority>
-   <cond>faction.playerStanding("Empire") &gt;= 0 and var.peek("es_misn") ~= nil and var.peek("es_misn") &gt;= 3</cond>
+   <cond>faction.playerStanding("Empire") &gt;= 0 and faction.playerStanding("Dvaered") &gt;= 0 and faction.playerStanding("FLF") &lt; 10 and var.peek("es_misn") ~= nil and var.peek("es_misn") &gt;= 3</cond>
    <chance>35</chance>
    <location>Bar</location>
    <faction>Empire</faction>
@@ -184,7 +184,7 @@
   </flags>
   <avail>
    <priority>2</priority>
-   <cond>faction.playerStanding("Empire") &gt;= 0</cond>
+   <cond>faction.playerStanding("Empire") &gt;= 0 and faction.playerStanding("Dvaered") &gt;= 0 and faction.playerStanding("FLF") &lt; 10</cond>
    <chance>50</chance>
    <done>Empire Shipping 1</done>
    <location>Bar</location>
@@ -198,7 +198,7 @@
   </flags>
   <avail>
    <priority>2</priority>
-   <cond>faction.playerStanding("Empire") &gt;= 0</cond>
+   <cond>faction.playerStanding("Empire") &gt;= 0 and faction.playerStanding("Dvaered") &gt;= 0 and faction.playerStanding("FLF") &lt; 10</cond>
    <chance>50</chance>
    <done>Empire Shipping 2</done>
    <location>Bar</location>
@@ -468,6 +468,23 @@
    <location>None</location>
   </avail>
  </mission>
+ <mission name="The lost Brother">
+  <lua>neutral/kidnapped/traffic_01</lua>
+  <flags>
+   <unique />
+  </flags>
+  <avail>
+   <priority>4</priority>
+   <cond>player.getRating() &gt; 15 and player.misnDone("Kidnapped")</cond>
+   <chance>12</chance>
+   <location>Bar</location>
+   <faction>Empire</faction>
+   <faction>Dvaered</faction>
+   <faction>Frontier</faction>
+   <faction>Goddard</faction>
+   <faction>Sirius</faction>
+  </avail>
+ </mission>
  <mission name="Deal with the FLF agent">
   <lua>flf/flf_pre01</lua>
   <flags>
@@ -505,7 +522,7 @@
    <unique />
   </flags>
   <avail>
-   <chance>100</chance>
+   <chance>60</chance>
    <done>Disrupt a Dvaered Patrol</done>
    <location>Bar</location>
    <faction>FLF</faction>
@@ -520,6 +537,19 @@
    <done>Diversion from Raelid</done>
    <location>Computer</location>
    <faction>FLF</faction>
+  </avail>
+ </mission>
+ <mission name="Empire Negotiations">
+  <lua>flf/empa/flf_empa01</lua>
+  <flags>
+   <unique />
+  </flags>
+  <avail>
+   <chance>40</chance>
+   <done>Diversion from Raelid</done>
+   <location>Bar</location>
+   <faction>FLF</faction>
+   <cond>diff.isApplied("collective_dead") and faction.playerStanding("FLF") &gt;= 30 and faction.playerStanding("Empire") &gt;= 30</cond>
   </avail>
  </mission>
  <mission name="Take the Dvaered crew home">
@@ -704,6 +734,29 @@
    <location>Bar</location>
   </avail>
  </mission>
+ <mission name="Deliver Love">
+   <lua>neutral/foodbiz/deliverlove</lua>
+   <flags>
+    <unique />
+   </flags>
+   <avail>
+    <chance>50</chance>
+    <location>Bar</location>
+    <planet>Zeo</planet>
+   </avail>
+  </mission>
+  <mission name="Deliver Cake">
+    <lua>neutral/foodbiz/delivercake</lua>
+    <flags>
+     <unique />
+    </flags>
+    <avail>
+     <chance>50</chance>
+     <cond>player.misnDone("Deliver Love")</cond>
+     <location>Bar</location>
+     <planet>Zhiru</planet>
+    </avail>
+   </mission>
  <mission name="Drinking Aristocrat">
   <lua>neutral/aristodrink</lua>
   <flags>
@@ -928,6 +981,42 @@
    <chance>25</chance>
    <location>Bar</location>
    <planet>Niflheim</planet>
+  </avail>
+ </mission>
+ <mission name="The one with the Shopping">
+  <lua>zalek/sciencegonewrong/00_sciwrong</lua>
+  <flags>
+    <unique />
+  </flags>
+  <avail>
+   <cond>player.getRating() &gt; 100</cond>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Gastan</planet>
+  </avail>
+ </mission>
+ <mission name="The one with the Visit">
+  <lua>zalek/sciencegonewrong/01_sciwrong</lua>
+  <flags>
+    <unique />
+  </flags>
+  <avail>
+   <cond>player.misnDone("The one with the Shopping")</cond>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Gastan</planet>
+  </avail>
+ </mission>
+ <mission name="The one with the Runaway">
+  <lua>zalek/sciencegonewrong/02_sciwrong</lua>
+  <flags>
+    <unique />
+  </flags>
+  <avail>
+   <cond>player.misnDone("The one with the Visit")</cond>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Gastan</planet>
   </avail>
  </mission>
  <mission name="A Shark Bites">
