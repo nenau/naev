@@ -2750,7 +2750,7 @@ void lane_populate ( SafeLane *lane )
    vect_cset( &vv, 0., 0.);
    for (i=0; i<nturret; i++){
       vect_cset( &vp, v1.x + (v2.x-v1.x) * (i+1)*distance/length, v1.y + (v2.y-v1.y) * (i+1)*distance/length);
-      pilot_create( ship_get( "Turret" ), "Placeholder Turret", lane->faction, lane->faction, "lane_turret", 0., &vp, &vv, flags, -1 );
+      pilot_create( ship_get( "Turret" ), "Turret", lane->faction, lane->faction, "lane_turret", 0., &vp, &vv, flags, -1 );
    }
 }
 

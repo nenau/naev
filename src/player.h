@@ -76,6 +76,9 @@ typedef struct Player_s {
    double crating; /**< Combat rating. */
    int autonav; /**< Current autonav state. */
    Vector2d autonav_pos; /**< Target autonav position. */
+   double *autonav_subtarget; /**< List of points the ship needs to cross to go to target (using lanes). */
+   int nb_subtarget; /**< Nb of subtarget the player has to cross. */
+   int cur_subtarget; /**< Index of the current subtarget. */
    char *autonavmsg; /**< String to print on arrival. */
    double tc_max; /**< Maximum time compression value (bounded by ship speed or conf setting). */
    double autonav_timer; /**< Timer that prevents time accel after a reset. */

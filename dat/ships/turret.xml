@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ship name="Turret">
  <base_type>Turret</base_type>
- <GFX sx="1" sy="1">base</GFX>
+ <GFX sx="1" sy="1">turret</GFX>
  <GUI>slim</GUI>
  <sound>engine</sound>
  <class>Corvette</class>

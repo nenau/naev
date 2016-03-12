@@ -99,6 +99,8 @@ void player_autonavStart (void)
  */
 static int player_autonavSetup (void)
 {
+   int n;
+
    /* Not under manual control or disabled. */
    if (pilot_isFlag( player.p, PILOT_MANUAL_CONTROL ) ||
          pilot_isDisabled(player.p))
@@ -134,6 +136,14 @@ static int player_autonavSetup (void)
 
    /* Make sure time acceleration starts immediately. */
    player.autonav_timer = 0.;
+
+   /*Set the safe path to follow (with lanes)*/
+   n = 0;
+   player.autonav_subtarget = system_findpath( 
+      &cur_system->jumps[ player.p->nav_hyperspace ].pos, 
+      &player.p->solid->pos, FACTION_PLAYER, &n );
+   player.nb_subtarget = n;
+   player.cur_subtarget = 0;
 
    return 1;
 }
@@ -273,6 +283,7 @@ void player_autonavAbort( const char *reason )
 static void player_autonav (void)
 {
    JumpPoint *jp;
+   Vector2d target;
    int ret;
    double d, t, tint;
    double vel;
@@ -280,11 +291,21 @@ static void player_autonav (void)
    switch (player.autonav) {
       case AUTONAV_JUMP_APPROACH:
          /* Target jump. */
-         jp    = &cur_system->jumps[ player.p->nav_hyperspace ];
-         ret   = player_autonavApproach( &jp->pos, &d, 0 );
-         if (ret)
+         if (player.nb_subtarget >= 2 && player.nb_subtarget > player.cur_subtarget)
+            vect_cset(&target, player.autonav_subtarget[player.cur_subtarget],
+              player.autonav_subtarget[player.cur_subtarget+1]);
+         else{
+            jp    = &cur_system->jumps[ player.p->nav_hyperspace ];
+            target = jp->pos;
+         }
+         
+         ret   = player_autonavApproach( &target, &d, 0 );
+
+         /* In case this is the last subtarget, think about braking and rampdown*/
+         if (ret && player.nb_subtarget <= player.cur_subtarget)
             player.autonav = AUTONAV_JUMP_BRAKE;
-         else if (!tc_rampdown && (map_npath<=1)) {
+         else if (!ret && !tc_rampdown && (map_npath<=1) && 
+                  player.nb_subtarget-2 <= player.cur_subtarget) {
             vel   = MIN( 1.5*player.p->speed, VMOD(player.p->solid->vel) );
             t     = d / vel * (1.2 - .1 * tc_base);
             /* tint is the integral of the time in per time units.
@@ -340,23 +361,34 @@ static void player_autonav (void)
          break;
 
       case AUTONAV_POS_APPROACH:
+         /* For this one, don't use the pathfinder */
          ret = player_autonavApproach( &player.autonav_pos, &d, 1 );
-         if (ret) {
+         if (ret && player.nb_subtarget <= player.cur_subtarget) {
             player_message( "\epAutonav arrived at position." );
             player_autonavEnd();
          }
          else if (!tc_rampdown)
             player_autonavRampdown(d);
          break;
+
       case AUTONAV_PNT_APPROACH:
-         ret = player_autonavApproach( &player.autonav_pos, &d, 1 );
-         if (ret) {
+         /* Go to the subtarget */
+         if (player.nb_subtarget >= 2 && player.nb_subtarget > player.cur_subtarget)
+            vect_cset(&target, player.autonav_subtarget[player.cur_subtarget],
+              player.autonav_subtarget[player.cur_subtarget+1]);
+         else{
+            target = player.autonav_pos;
+         }
+
+         ret = player_autonavApproach( &target, &d, 1 );
+         if (ret && player.nb_subtarget <= player.cur_subtarget) {
             player_message( "\epAutonav arrived at \e%c%s\e\0.",
                   planet_getColourChar( planet_get(player.autonavmsg) ),
                   player.autonavmsg );
             player_autonavEnd();
          }
-         else if (!tc_rampdown)
+         else if (!ret && !tc_rampdown && 
+                  player.nb_subtarget-2 <= player.cur_subtarget)
             player_autonavRampdown(d);
          break;
    }
@@ -406,6 +438,7 @@ static int player_autonavApproach( const Vector2d *pos, double *dist2, int count
    /* See if should start braking. */
    if (dist < 0.) {
       player_accelOver();
+      player.cur_subtarget += 2;  /* Set the subtarget as done */
       return 1;
    }
    return 0;
