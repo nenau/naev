@@ -88,7 +88,14 @@ void player_autonavStart (void)
    if (!player_autonavSetup())
       return;
 
-   player.autonav = AUTONAV_JUMP_APPROACH;
+   /*n = 0;
+   jp = &cur_system->jumps[ player.p->nav_hyperspace ];
+   player.autonav_subtarget = system_findpath( 
+      &jp->pos, &player.p->solid->pos, FACTION_PLAYER, &n );
+   player.nb_subtarget = n;
+   player.cur_subtarget = 0;*/
+
+   player.autonav = AUTONAV_JUMP_INIT;
 }
 
 
@@ -99,7 +106,6 @@ void player_autonavStart (void)
  */
 static int player_autonavSetup (void)
 {
-   int n;
 
    /* Not under manual control or disabled. */
    if (pilot_isFlag( player.p, PILOT_MANUAL_CONTROL ) ||
@@ -136,14 +142,6 @@ static int player_autonavSetup (void)
 
    /* Make sure time acceleration starts immediately. */
    player.autonav_timer = 0.;
-
-   /*Set the safe path to follow (with lanes)*/
-   n = 0;
-   player.autonav_subtarget = system_findpath( 
-      &cur_system->jumps[ player.p->nav_hyperspace ].pos, 
-      &player.p->solid->pos, FACTION_PLAYER, &n );
-   player.nb_subtarget = n;
-   player.cur_subtarget = 0;
 
    return 1;
 }
@@ -189,6 +187,7 @@ void player_autonavPos( double x, double y )
  */
 void player_autonavPnt( char *name )
 {
+   int n;
    Planet *p;
 
    p = planet_get( name );
@@ -197,6 +196,14 @@ void player_autonavPnt( char *name )
 
    player.autonav    = AUTONAV_PNT_APPROACH;
    player.autonavmsg = p->name;
+
+   /*Set the safe path to follow (with lanes)*/
+   n = 0;
+   player.autonav_subtarget = system_findpath( 
+      &p->pos, &player.p->solid->pos, FACTION_PLAYER, &n );
+   player.nb_subtarget = n;
+   player.cur_subtarget = 0;
+
    vect_cset( &player.autonav_pos, p->pos.x, p->pos.y );
 }
 
@@ -283,6 +290,7 @@ void player_autonavAbort( const char *reason )
 static void player_autonav (void)
 {
    JumpPoint *jp;
+   int n;
    Vector2d target;
    int ret;
    double d, t, tint;
@@ -348,9 +356,12 @@ static void player_autonav (void)
 
          /* Try to jump or see if braked. */
          if (ret) {
-            if (space_canHyperspace(player.p))
+            if (space_canHyperspace(player.p)) {
                player_jump();
-            player.autonav = AUTONAV_JUMP_APPROACH;
+               player.autonav = AUTONAV_JUMP_INIT;
+            }
+            else
+               player.autonav = AUTONAV_JUMP_APPROACH;
          }
 
          /* See if should ramp down. */
@@ -359,6 +370,17 @@ static void player_autonav (void)
             tc_down     = (tc_mod-tc_base) / 3.;
          }
          break;
+
+      case AUTONAV_JUMP_INIT:
+         /* Init the pathfinder */
+         n = 0;
+         jp = &cur_system->jumps[ player.p->nav_hyperspace ];
+         player.autonav_subtarget = system_findpath( 
+            &jp->pos, &player.p->solid->pos, FACTION_PLAYER, &n );
+         player.nb_subtarget = n;
+         player.cur_subtarget = 0;
+
+         player.autonav = AUTONAV_JUMP_APPROACH;
 
       case AUTONAV_POS_APPROACH:
          /* For this one, don't use the pathfinder */
