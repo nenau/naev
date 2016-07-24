@@ -74,6 +74,7 @@ void gui_radarGetRes( int *res );
  * Render radar.
  */
 void gui_renderPlanet( int ind, RadarShape shape, double w, double h, double res, int overlay );
+void gui_renderSafeLane( int ind, RadarShape shape, double w, double h, double res, int overlay );
 void gui_renderJumpPoint( int ind, RadarShape shape, double w, double h, double res, int overlay );
 void gui_renderPilot( const Pilot* p, RadarShape shape, double w, double h, double res, int overlay );
 void gui_renderPlayer( double res, int overlay );

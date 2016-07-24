@@ -377,6 +377,7 @@ function runaway ()
    local t = ai.nearhyptarget()
    if t == nil then
       ai.pushsubtask( "__run_target" )
+      ai.leaveasap( true )
    else
       ai.pushsubtask( "__run_hyp", t )
    end

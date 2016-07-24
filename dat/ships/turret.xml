@@ -33,6 +33,6 @@
   <turn_mod>30</turn_mod>
   <speed_mod>-100</speed_mod>
   <thrust_mod>-100</thrust_mod>
-  <ew_hide>-100</ew_hide>
+  <ew_hide>-10</ew_hide>
  </stats>
 </ship>

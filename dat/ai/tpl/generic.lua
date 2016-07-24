@@ -210,6 +210,7 @@ function control ()
       if mem.aggressive and ((mem.shield_return > 0 and pshield >= mem.shield_return) or
             (mem.armour_return > 0 and parmour >= mem.armour_return)) then
          ai.poptask() -- "attack" should be above "runaway"
+         ai.leaveasap( false ) -- In case pilot wants to leave
 
       -- Try to jump
       elseif dist > mem.safe_distance then

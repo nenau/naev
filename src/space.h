@@ -331,6 +331,8 @@ int* lane_flowPathfinder( SafeLane *lane, int faction, StarSystem *sys );
 int system_isOnLane( SafeLane *lane, Vector2d *pos, double a );
 int system_isOnAnyLane( Vector2d *pos, double a, int faction, int hostile );
 Vector2d system_getnode(int faction);
+SafeLane *system_getlanes(void);
+int system_getlaneNumber(void);
 
 
 /*

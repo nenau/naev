@@ -439,6 +439,7 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
    double chance;
    int ignore_rules;
    int* enemies;
+   double presence;
 
    /* Default values. */
    pilot_clearFlagsRaw( flags );
@@ -545,20 +546,24 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
              * ignore_rules is set, must also be non-hidden and have faction
              * presence matching the pilot's on the remote side.
              * If the faction avoids protected lanes, the jump must not be 
-             * protected by any of the faction's enemies.
+             * protected by any of the faction's enemies, and his faction presence
+             * must be greater than the greatest enemy presence in the target system.
              * factions avoiding lanes use hidden jumps.
              */
 
             protected = 0;
+            presence  = 0;
             target = jump_getTarget( cur_system, cur_system->jumps[i].target );
 
             if (faction_AvoidLanes( lf ) && !jp_isFlag( &cur_system->jumps[i], JP_EXITONLY ) &&
                   !jp_isFlag( &cur_system->jumps[i], JP_HIDDEN )){
                enemies = faction_getEnemies( lf, &nenemies );
+
                for (j=0; j<nenemies; j++){
+                  if (system_getPresence( cur_system->jumps[i].target, enemies[j] ) > presence)
+                     presence = system_getPresence( cur_system->jumps[i].target, enemies[j] );
                   if (jump_protected(&cur_system->jumps[i], enemies[j])){
                      protected = 1;
-                     break;
                   }
                }
             }
@@ -566,8 +571,8 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
             if (!jp_isFlag( target, JP_EXITONLY ) && (ignore_rules ||
                   ((!jp_isFlag( &cur_system->jumps[i], JP_HIDDEN) || 
                   faction_AvoidLanes( lf ) ) &&
-                  (system_getPresence( cur_system->jumps[i].target, lf ) > 0) &&
-                  !protected )))
+                  (system_getPresence( cur_system->jumps[i].target, lf ) > presence) &&
+                  !protected )) )
                jumpind[ njumpind++ ] = i;
          }
       }

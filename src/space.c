@@ -1006,6 +1006,24 @@ int jump_protected(JumpPoint* jump, int faction )
 }
 
 
+/**
+ * @brief returns the number of lanes in the current system
+ */
+int system_getlaneNumber( void )
+{
+   return nlanes;
+}
+
+
+/**
+ * @brief returns the list of lanes in the current system
+ */
+SafeLane *system_getlanes( void )
+{
+   return lanes;
+}
+
+
 /*
  * @brief Computes the path to join a position from current pos
  *

@@ -222,6 +222,10 @@ void ovr_render( double dt )
    if (player.p->nav_hyperspace > -1)
       gui_renderJumpPoint( player.p->nav_hyperspace, RADAR_RECT, w, h, res, 1 );
 
+   /* Render safe lanes. */
+   for (i=0; i<system_getlaneNumber(); i++)
+      gui_renderSafeLane( i, RADAR_RECT, w, h, res, 1 );
+
    /* Render pilots. */
    pstk  = pilot_getAll( &n );
    j     = 0;

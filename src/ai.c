@@ -252,6 +252,7 @@ static int aiL_credits( lua_State *L ); /* credits( number ) */
 /* misc */
 static int aiL_board( lua_State *L ); /* boolean board() */
 static int aiL_refuel( lua_State *L ); /* boolean, boolean refuel() */
+static int aiL_leaveasap( lua_State *L ); /* boolean, boolean leaveasap() */
 
 
 static const luaL_reg aiL_methods[] = {
@@ -337,6 +338,7 @@ static const luaL_reg aiL_methods[] = {
    /* misc */
    { "board", aiL_board },
    { "refuel", aiL_refuel },
+   { "leaveasap", aiL_leaveasap },
    {0,0} /* end */
 }; /**< Lua AI Function table. */
 
@@ -2477,7 +2479,8 @@ static int aiL_nearhyptarget( lua_State *L )
 {
    JumpPoint *jp, *jiter;
    double mindist, dist;
-   int i, j;
+   int i, j, protected, nenemies;
+   int *enemies;
    Vector2d vec;
    double a, rad;
 
@@ -2489,11 +2492,26 @@ static int aiL_nearhyptarget( lua_State *L )
    mindist = INFINITY;
    jp      = NULL;
    j       = 0;
+
    for (i=0; i <cur_system->njumps; i++) {
       jiter = &cur_system->jumps[i];
+
       /* We want only standard jump points to be used. */
       if (jp_isFlag(jiter, JP_HIDDEN) || jp_isFlag(jiter, JP_EXITONLY))
          continue;
+      protected = 0;
+      /* Protected JP are also forbitten */
+      if (faction_AvoidLanes( cur_pilot->faction )){
+         enemies = faction_getEnemies( cur_pilot->faction, &nenemies );
+         for (j=0; j<nenemies; j++){
+            if (jump_protected(&cur_system->jumps[i], enemies[j])){
+               protected = 1;
+               break;
+            }
+         }
+      }
+      if (protected) continue;
+
       /* Get nearest distance. */
       dist  = vect_dist2( &cur_pilot->solid->pos, &jiter->pos );
       if (dist < mindist) {
@@ -3220,6 +3238,21 @@ static int aiL_refuel( lua_State *L )
    return 1;
 }
 
+/**
+ * @brief Marks the pilot as wanting to leave the system by non regular ways.
+ *
+ *    @luareturn true
+ *    @luafunc leaveasap()
+ *    @luaparam leave If true, set the flag, otherwise, remove it.
+ */
+static int aiL_leaveasap( lua_State *L )
+{
+   if (lua_toboolean(L,1))
+      pilot_setFlag( cur_pilot, PILOT_WANNALEAVE );
+   else if pilot_isFlag( cur_pilot, PILOT_WANNALEAVE )
+      pilot_rmFlag( cur_pilot, PILOT_WANNALEAVE );
+   return 1;
+}
 
 /**
  * @brief Sets a timer.

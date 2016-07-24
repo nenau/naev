@@ -2767,6 +2767,13 @@ void pilots_update( double dt )
    for (i=0; i<pilot_nstack; i++) {
       p = pilot_stack[i];
 
+      /* If he wants to leave and everthing is OK, delete him. */
+      if (pilot_isFlag(p, PILOT_WANNALEAVE) &&
+          VMOD(p->solid->pos) > cur_system->radius + 10000 &&
+          pilot_inRangePilot( player.p, p ) == 0 ) {
+         pilot_delete(p);
+      }
+
       /* Destroy pilot and go on. */
       if (pilot_isFlag(p, PILOT_DELETE)) {
          pilot_destroy(p);
