@@ -1034,7 +1034,7 @@ SafeLane *system_getlanes( void )
  */
 double* system_findpath( Vector2d* target, Vector2d* origin,int faction,  int* n )
 {
-   double dist, *list;
+   double dist, *list, a, b, delta, xcap, ycap, xinter, yinter;
    SpaceNode tarnode, ornode;
    SafeLane* lane ;
    int i, j, ieq, prevId, *list1, bre, retro;
@@ -1112,6 +1112,41 @@ double* system_findpath( Vector2d* target, Vector2d* origin,int faction,  int* n
          list[2*ieq+3] = lanes[list1[i]].node1->pos.y;
          prevId = lanes[list1[i]].node1->id;
       }
+   }
+
+   if (*n >= 4) {
+      /* Find the orthogonal projection of the origin on the first lane */
+      a = list[0] - list[2]; b = list[1] - list[3];
+      xcap = a*origin->x + b*origin->y;
+      ycap = b*list[2] - a*list[3];
+      delta = -( a*a + b*b );
+   
+      xinter = ( -a*xcap - b*ycap ) / delta;
+      yinter = ( -b*xcap + a*ycap ) / delta;
+
+      /*If this point is inside the lane, use it as start.*/
+      if ( ((xinter-list[0]) * (xinter-list[2]) < 0) && 
+         ((yinter-list[1]) * (yinter-list[3]) < 0) ){
+         list[0] = xinter;
+         list[1] = yinter;
+      }
+
+      /* Same thing with the target. */
+      a = list[*n-4] - list[*n-2]; b = list[*n-3] - list[*n-1];
+      xcap = a*origin->x + b*origin->y;
+      ycap = b*list[*n-2] - a*list[*n-1];
+      delta = -( a*a + b*b );
+   
+      xinter = ( -a*xcap - b*ycap ) / delta;
+      yinter = ( -b*xcap + a*ycap ) / delta;
+
+      /*If this point is inside the lane, use it as start.*/
+      if ( ((xinter-list[*n-4]) * (xinter-list[*n-2]) < 0) && 
+         ((yinter-list[*n-3]) * (yinter-list[*n-1]) < 0) ){
+         list[*n-2] = xinter;
+         list[*n-1] = yinter;
+      }
+
    }
 
    return list;
@@ -2574,7 +2609,8 @@ void system_computeSafeLanes(StarSystem *sys)
             !planet_hasService(sys->planets[i],PLANET_SERVICE_INHABITED))
          continue;
 
-      snodes[k].pos = sys->planets[i]->pos;
+      snodes[k].pos   = sys->planets[i]->pos;
+      snodes[k].known = planet_isKnown( sys->planets[i] );
 
       /* Manage the weight, that represents the interest factions have in this node */
       snodes[k].weight = malloc (sizeof(double) * sys->npresence);
@@ -2595,6 +2631,7 @@ void system_computeSafeLanes(StarSystem *sys)
             for (j=0; j<sys->npresence; j++){
                snodes[m].weight[j] += snodes[k].weight[j];
             }
+            snodes[m].known = snodes[m].known || snodes[k].known;
             /* Remark : this is not really beautyful in case of more than one node... */
             snodes[m].pos.x = 0.5*(snodes[m].pos.x + snodes[k].pos.x);
             snodes[m].pos.y = 0.5*(snodes[m].pos.y + snodes[k].pos.y);
@@ -2616,7 +2653,8 @@ void system_computeSafeLanes(StarSystem *sys)
       /* No lane from a hidden jump */
       if ( jp_isFlag(&sys->jumps[i], JP_HIDDEN) || jp_isFlag(&sys->jumps[i],JP_EXITONLY) )
          continue;
-      snodes[k].pos = sys->jumps[i].pos;
+      snodes[k].pos   = sys->jumps[i].pos;
+      snodes[k].known = jp_isKnown( &sys->jumps[i] );
 
       /* Manage the weight, that represents the interest factions have in this node */
       snodes[k].weight = malloc (sizeof(double) * sys->npresence);
@@ -2647,9 +2685,8 @@ void system_computeSafeLanes(StarSystem *sys)
    if (nsnodes>1)
       nlanes = (nsnodes * (nsnodes-1))/2;
 
-   else {  /* There is only one asset/jump on this system */
+   else  /* There is only one asset/jump on this system */
       nlanes = 0;
-   }
 
    lanes = malloc (sizeof(SafeLane) * nlanes);
 
@@ -2733,6 +2770,7 @@ void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k )
    }
 
    lanes[k].flow = 0.;
+   lanes[k].known = n1->known && n2->known;
 
    lanes[k].id = k;
 

@@ -194,6 +194,7 @@ typedef struct SafeLane_ {
    int faction; /**< The faction patrolling the lane. */
    int nfactions; /**< Number of factions patrolling the lane. */
    int id; /**< ID */
+   int known; /**< 1 if the lane is known, 0 otherwise. */ 
    double length; /**< The price of the lane */
    double flow; /**< How much traffic will use the lane. */
    double *pressure; /**< How much traffic wants to use the lane. */
@@ -208,6 +209,7 @@ struct SpaceNode_ {
    SafeLane *lanes; /**< Linked lanes */
    int id; /**< ID */
    int nlanes; /**< nb of linked lanes */
+   int known; /**< 1 if the node is known, 0 otherwise. */
    double *weight; /**< Importance of this node for different factions */
    double length; /**< Length from first node in pathfinder */
    SafeLane *way; /**< Way to the first node in pathfinder */

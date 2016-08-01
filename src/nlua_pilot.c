@@ -570,22 +570,22 @@ static int pilotL_addFleetFrom( lua_State *L, int from_ship )
 
             if (!jp_isFlag( target, JP_EXITONLY ) && (ignore_rules ||
                   ((!jp_isFlag( &cur_system->jumps[i], JP_HIDDEN) || 
-                  faction_AvoidLanes( lf ) ) &&
-                  (system_getPresence( cur_system->jumps[i].target, lf ) > presence) &&
-                  !protected )) )
+                  faction_AvoidLanes( lf ) ) && !protected &&
+                  (system_getPresence( cur_system->jumps[i].target, lf ) > presence) )) )
                jumpind[ njumpind++ ] = i;
          }
       }
 
-      /* Crazy case no landable nor presence, we'll just jump in randomly. */
       if ((nind == 0) && (njumpind==0)) {
          /* If the faction avoids enemies lanes, create the ship outside the map */
          if (faction_AvoidLanes( lf )){
+            jumpind = NULL;
             a = RNGF() * 2. * M_PI;
             r = cur_system->radius + 5000 * (1+RNGF());
             vect_cset( &vp, r * cos(a), r * sin(a) );
             vectnull( &vv );
          }
+         /* Crazy case no landable nor presence, we'll just jump in randomly. */
          else if (cur_system->njumps > 0) {
             jumpind = malloc( sizeof(int) * cur_system->njumps );
             for (i=0; i<cur_system->njumps; i++)

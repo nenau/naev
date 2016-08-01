@@ -224,7 +224,7 @@ void ovr_render( double dt )
 
    /* Render safe lanes. */
    for (i=0; i<system_getlaneNumber(); i++)
-      gui_renderSafeLane( i, RADAR_RECT, w, h, res, 1 );
+      gui_renderSafeLane( i, res, 1 );
 
    /* Render pilots. */
    pstk  = pilot_getAll( &n );

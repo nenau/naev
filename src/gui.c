@@ -1661,7 +1661,7 @@ void gui_renderPlanet( int ind, RadarShape shape, double w, double h, double res
  *
  *    @param i safe lane to render.
  */
-void gui_renderSafeLane( int ind, RadarShape shape, double w, double h, double res, int overlay )
+void gui_renderSafeLane( int ind, double res, int overlay )
 {
    SafeLane *sl;
    int c1x, c1y, c2x, c2y, i;
@@ -1669,8 +1669,8 @@ void gui_renderSafeLane( int ind, RadarShape shape, double w, double h, double r
 
    sl = &system_getlanes( )[ind];
 
-   /* If the lane i not protected, don't display it */
-   if (sl->faction == FACTION_PLAYER)
+   /* If the lane is not protected or unknown, don't display it */
+   if (sl->faction == FACTION_PLAYER || !sl->known)
       return;
 
    if (overlay) {
@@ -1687,7 +1687,7 @@ void gui_renderSafeLane( int ind, RadarShape shape, double w, double h, double r
          colours[i + 3] = 0;
       }
       gl_vboSubData( gui_vbo, gui_vboColourOffset,
-         sizeof(GLfloat) * 5*4, colours );
+         sizeof(GLfloat) * 2*4, colours );
       /* Now load the data. */
       vertex[0] = c1x;
       vertex[1] = c1y;
@@ -1696,8 +1696,8 @@ void gui_renderSafeLane( int ind, RadarShape shape, double w, double h, double r
       gl_vboSubData( gui_vbo, 0, sizeof(GLfloat) * 2*2, vertex );
       /* Draw tho VBO. */
       gl_vboActivateOffset( gui_vbo, GL_VERTEX_ARRAY, 0, 2, GL_FLOAT, 0 );
-      gl_vboActivateOffset( gui_vbo, GL_COLOR_ARRAY,
-         gui_vboColourOffset, 4, GL_FLOAT, 0 );
+      //gl_vboActivateOffset( gui_vbo, GL_COLOR_ARRAY,
+        // gui_vboColourOffset, 4, GL_FLOAT, 0 );
       glDrawArrays( GL_LINE_STRIP, 0, 2 );
 
       /* Deactivate the VBO. */
