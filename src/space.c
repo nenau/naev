@@ -70,6 +70,8 @@
 #define FLAG_SERVICESSET      (1<<4) /**< Set the service value. */
 #define FLAG_FACTIONSET       (1<<5) /**< Set the faction value. */
 
+#define LANE_PRICE            0.01 /**< Faction presence price of 1m safe lane */
+
 
 /*
  * planet <-> system name stack
@@ -2595,7 +2597,7 @@ void systems_reconstructPlanets (void)
 void system_computeSafeLanes(StarSystem *sys)
 {
    int i, j, k, n, m;
-   double remain_presence, cost, priceCoeff;
+   double remain_presence, cost;
 
    /* Allocate memory for nodes */
    nsnodes = sys->lplanets+sys->ljumps;
@@ -2703,9 +2705,6 @@ void system_computeSafeLanes(StarSystem *sys)
       }
    }
 
-   /* priceCoeff : the price of 1m safelane /!\ also defined in lane_activate */
-   priceCoeff = 0.0075;
-
    for (i=0; i<sys->npresence; i++){
       if (!faction_HasLanes( sys->presence[i].faction ))
          continue;
@@ -2718,11 +2717,11 @@ void system_computeSafeLanes(StarSystem *sys)
 
          /* FACTION_PLAYER marks lanes that no faction choosed */
          if (lanes[j].faction == FACTION_PLAYER &&
-               lanes[j].length * priceCoeff < sys->presence[i].value &&
+               lanes[j].length * LANE_PRICE < sys->presence[i].value &&
                lanes[j].pressure[getPresenceIndex(sys, sys->presence[i].faction)] > 0.){
             lanes[j].faction = sys->presence[i].faction;
             /* Compute the cost of the lanes mesh */
-            cost += lanes[j].length * priceCoeff;
+            cost += lanes[j].length * LANE_PRICE;
          }
 
       }
@@ -2787,7 +2786,7 @@ void lane_new ( SpaceNode *n1, SpaceNode *n2, StarSystem *sys, int k )
  */
 void lane_populate ( SafeLane *lane )
 {
-   double length, distance = 2000.; /* Define the distance between 2 turrets */
+   double length, distance = 3000.; /* Define the distance between 2 turrets */
    int nturret, i;
    Vector2d vv, vp, v1, v2;
    PilotFlags flags;
@@ -2822,14 +2821,11 @@ void lane_populate ( SafeLane *lane )
 double lane_activate ( double remain_presence, int faction, StarSystem *sys )
 {
    int k, n;
-   double ardu, curardu, worstuse, priceCoeff, noLaneCoeff, usefulness;
+   double ardu, curardu, worstuse, noLaneCoeff, usefulness;
    SafeLane *worstLane;
 
    /* ardu messes the average arduousness for ships */
    ardu = 0.;
-
-   /* priceCoeff : the price of 1m safelane */
-   priceCoeff = 0.0075;
 
    /* choosen lane */
    worstuse = INFINITY;
@@ -2888,7 +2884,7 @@ double lane_activate ( double remain_presence, int faction, StarSystem *sys )
    if (worstLane != NULL){
       worstLane->active = 0;
       worstLane->faction = FACTION_PLAYER;
-      return remain_presence - worstLane->length * priceCoeff;
+      return remain_presence - worstLane->length * LANE_PRICE;
    }
 
    /* No lane was de-activated : no need to iterate further : return a negative number */
